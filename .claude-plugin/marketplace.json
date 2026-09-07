@@ -1,0 +1,11 @@
+{
+  "name": "rhseung",
+  "owner": { "name": "Hyunseung Ryu" },
+  "plugins": [
+    {
+      "name": "review",
+      "source": "./review",
+      "description": "PR reviewer that closes fixed threads, re-reviews each push and approves when nothing is left"
+    }
+  ]
+}

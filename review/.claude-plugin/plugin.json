@@ -1,0 +1,5 @@
+{
+  "name": "review",
+  "version": "0.1.0",
+  "description": "PR reviewer that closes fixed threads, re-reviews each push and approves when nothing is left"
+}

@@ -1,0 +1,96 @@
+name: review
+
+on:
+  workflow_call:
+
+jobs:
+  review:
+    # 포크 PR 은 시크릿이 없어 실패 대신 건너뛴다
+    if: >-
+      ${{ github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # push 는 진행 중인 리뷰를 밀어낸다. 코멘트 잡은 다른 그룹이라 안 죽는다
+    concurrency:
+      group: review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: https://github.com/rhseung/claude-review-plugin.git
+          plugins: review@rhseung
+          prompt: /review:pr ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.pull_request.head.sha }} ${{ github.event.action }}
+          claude_args: |
+            --model claude-opus-5
+            --max-turns 40
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
+
+  reply:
+    # App 토큰으로 단 내 답글도 이 이벤트를 다시 쏜다
+    if: >-
+      ${{ github.event_name == 'pull_request_review_comment' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.comment.user.login != 'claude[bot]' &&
+          github.event.comment.in_reply_to_id != null &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: review-comment-${{ github.event.pull_request.number || github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: https://github.com/rhseung/claude-review-plugin.git
+          plugins: review@rhseung
+          prompt: /review:reply ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.comment.id }}
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 20
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
+
+  mention:
+    if: >-
+      ${{ github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request &&
+          github.event.comment.user.login != 'claude[bot]' &&
+          contains(github.event.comment.body, '@claude') &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: review-comment-${{ github.event.pull_request.number || github.event.issue.number }}
+    steps:
+      # issue_comment 페이로드엔 head repo 가 없다. 포크 코드를 시크릿 옆에서 열지 않는다
+      - run: test "$(gh pr view "$PR" --json isCrossRepository --jq .isCrossRepository)" = false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: https://github.com/rhseung/claude-review-plugin.git
+          plugins: review@rhseung
+          prompt: /review:mention ${{ github.repository }} ${{ github.event.issue.number }} ${{ github.event.comment.id }}
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 40
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh api:*),Edit(/.claude-review/**)"
