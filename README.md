@@ -2,7 +2,7 @@
 
 PR 리뷰를 Claude 에 맡기는 플러그인입니다. PR 을 생성할 때와 push 할 때마다 `AGENTS.md` 에
 적힌 규칙을 기준으로 변경분을 검토하고, 규칙을 위반한 지점에 인라인 코멘트를 남깁니다.
-수정한 뒤에 다시 push 하면 해결된 스레드를 닫고 새로 추가된 변경분만 검토하며, 남은
+수정한 뒤에 다시 push 하면 해결된 thread 를 닫고 새로 추가된 변경분만 검토하며, 남은
 사항이 없으면 approve 합니다.
 
 ## 설치
@@ -38,7 +38,7 @@ gh variable set ENABLE_CLAUDE_REVIEW --body true
 
 ## 사용법
 
-- 코멘트에는 스레드 답글로 응답합니다. 지적이 타당하면 스레드를 닫습니다.
+- 코멘트에는 thread 답글로 응답합니다. 지적이 타당하면 thread 를 닫습니다.
 - 지시는 PR 코멘트에서 `@claude` 를 멘션해서 전달합니다. `@claude review` 라고 쓰면 push
   하지 않아도 다시 검토합니다.
 - 비활성화하려면 `gh variable set ENABLE_CLAUDE_REVIEW --body false` 를 실행합니다.
@@ -60,7 +60,7 @@ claude plugin install review@rhseung
 ## 구성
 
 - `review/commands/pr.md` - push 할 때마다 실행되는 리뷰 루프
-- `review/commands/reply.md` - 스레드 답글 응답
+- `review/commands/reply.md` - thread 답글 응답
 - `review/commands/mention.md` - `@claude` 멘션 처리
 - `.github/workflows/review.yml` - 위 세 가지를 잡으로 묶은 reusable workflow. 검토에는
   opus 를 사용하고, 나머지에는 sonnet 을 사용합니다.
