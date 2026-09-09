@@ -1,8 +1,9 @@
 # claude-review-plugin
 
-PR 리뷰를 Claude 에 맡긴다. PR 생성과 push 마다 `AGENTS.md` 의 규칙을 기준으로 변경분을 검토하고,
-위반 지점에 인라인 코멘트를 남긴다. 수정 후 push 하면 해결된 스레드를 닫고 새 변경분만
-재검토하며, 남은 사항이 없으면 approve 한다.
+PR 리뷰를 Claude 에 맡기는 플러그인입니다. PR 을 생성할 때와 push 할 때마다 `AGENTS.md` 에
+적힌 규칙을 기준으로 변경분을 검토하고, 규칙을 위반한 지점에 인라인 코멘트를 남깁니다.
+수정한 뒤에 다시 push 하면 해결된 스레드를 닫고 새로 추가된 변경분만 검토하며, 남은
+사항이 없으면 approve 합니다.
 
 ## 설치
 
@@ -29,20 +30,22 @@ jobs:
 ```
 
 ```sh
-open https://github.com/apps/claude/installations/new   # Claude GitHub App. 레포 선택. 한 번만
-claude setup-token                                      # 구독 OAuth 토큰(1년). Pro/Max/Team
+open https://github.com/apps/claude/installations/new   # Claude GitHub App. 저장소 선택. 최초 1회만
+claude setup-token                                      # 구독 OAuth 토큰 (1년). Pro/Max/Team
 gh secret set CLAUDE_CODE_OAUTH_TOKEN                   # 위 토큰 붙여넣기
 gh variable set ENABLE_CLAUDE_REVIEW --body true
 ```
 
 ## 사용법
 
-- 코멘트에는 스레드 답글로 응답한다. 타당하면 스레드를 닫는다.
-- 지시는 PR 코멘트에 `@claude` 멘션으로 한다. `@claude review` 는 push 없는 재검토.
-- 비활성화: `gh variable set ENABLE_CLAUDE_REVIEW --body false`.
-- 포크 PR 은 검토 대상에서 제외한다.
-- 토큰 만료 시 `claude setup-token` 과 `gh secret set` 을 재실행한다.
-- 봇은 요청 본문을 레포 안 `.claude-review/` 에 기록한다. 커밋 대상은 아니지만 `.gitignore` 등록을 권한다.
+- 코멘트에는 스레드 답글로 응답합니다. 지적이 타당하면 스레드를 닫습니다.
+- 지시는 PR 코멘트에서 `@claude` 를 멘션해서 전달합니다. `@claude review` 라고 쓰면 push
+  하지 않아도 다시 검토합니다.
+- 비활성화하려면 `gh variable set ENABLE_CLAUDE_REVIEW --body false` 를 실행합니다.
+- 포크에서 올라온 PR 은 검토 대상에서 제외합니다.
+- 토큰이 만료되면 `claude setup-token` 과 `gh secret set` 을 다시 실행합니다.
+- 봇은 요청 본문을 저장소 안의 `.claude-review/` 에 기록합니다. 커밋할 대상은 아니므로
+  `.gitignore` 에 등록해 두시기를 권합니다.
 
 ## 로컬 실행
 
@@ -51,11 +54,13 @@ claude plugin marketplace add rhseung/claude-review-plugin
 claude plugin install review@rhseung
 ```
 
-`/review:pr OWNER/REPO NUMBER HEAD_SHA synchronize` 로 같은 검토를 로컬에서 실행한다.
+`/review:pr OWNER/REPO NUMBER HEAD_SHA synchronize` 를 실행하면 같은 검토를 로컬에서
+수행합니다.
 
 ## 구성
 
-- `review/commands/pr.md` - push 마다 도는 리뷰 루프
+- `review/commands/pr.md` - push 할 때마다 실행되는 리뷰 루프
 - `review/commands/reply.md` - 스레드 답글 응답
 - `review/commands/mention.md` - `@claude` 멘션 처리
-- `.github/workflows/review.yml` - 위 셋을 잡으로 묶은 reusable workflow. 검토는 opus, 나머지는 sonnet
+- `.github/workflows/review.yml` - 위 세 가지를 잡으로 묶은 reusable workflow. 검토에는
+  opus 를 사용하고, 나머지에는 sonnet 을 사용합니다.
