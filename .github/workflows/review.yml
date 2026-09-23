@@ -4,6 +4,8 @@ on:
   workflow_call:
 
 jobs:
+  # PR 열림/push -> 수정된 thread 닫기 -> 새 diff 리뷰 -> 열린 thread나 새 코멘트가
+  # 있으면 request changes, 없으면 approve
   review:
     # 포크 PR 은 시크릿이 없어 실패 대신 건너뛴다
     if: >-
@@ -32,6 +34,8 @@ jobs:
             --max-turns 150
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 
+  # thread에 달린 답글 -> 타당하면 닫음 -> 열린 게 남으면 request changes, 전부 닫혔으면
+  # approve. run_id로 찾은 push 리뷰가 돌고 있으면 승인은 그쪽에 맡긴다 (actions: read 필요)
   reply:
     # App 토큰으로 단 내 답글도 이 이벤트를 다시 쏜다
     if: >-
@@ -54,12 +58,13 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: https://github.com/rhseung/claude-review-plugin.git
           plugins: review@rhseung
-          prompt: /review:reply ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.comment.id }}
+          prompt: /review:reply ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.comment.id }} ${{ github.run_id }}
           claude_args: |
             --model claude-sonnet-5
             --max-turns 80
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 
+  # @claude 멘션 -> 요청대로 재리뷰하거나 답변 -> 리뷰 제출과 승인 규칙은 reply와 동일
   mention:
     if: >-
       ${{ github.event_name == 'issue_comment' &&
@@ -89,7 +94,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: https://github.com/rhseung/claude-review-plugin.git
           plugins: review@rhseung
-          prompt: /review:mention ${{ github.repository }} ${{ github.event.issue.number }} ${{ github.event.comment.id }}
+          prompt: /review:mention ${{ github.repository }} ${{ github.event.issue.number }} ${{ github.event.comment.id }} ${{ github.run_id }}
           claude_args: |
             --model claude-sonnet-5
             --max-turns 150
