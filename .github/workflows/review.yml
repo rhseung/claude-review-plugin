@@ -29,7 +29,7 @@ jobs:
           prompt: /review:pr ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.pull_request.head.sha }} ${{ github.event.action }}
           claude_args: |
             --model claude-opus-5
-            --max-turns 40
+            --max-turns 150
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 
   reply:
@@ -57,7 +57,7 @@ jobs:
           prompt: /review:reply ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.comment.id }}
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 20
+            --max-turns 80
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 
   mention:
@@ -92,5 +92,5 @@ jobs:
           prompt: /review:mention ${{ github.repository }} ${{ github.event.issue.number }} ${{ github.event.comment.id }}
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 40
+            --max-turns 150
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh api:*),Edit(/.claude-review/**)"
