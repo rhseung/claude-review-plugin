@@ -27,8 +27,12 @@ creates files.
      resolve the thread with the resolveReviewThread mutation.
    - A question: answer it in the thread. Resolve only if nothing is left to do.
    - Not valid: reply with the reason and leave the thread open.
-3. If no thread of yours is open any more and your latest review on this PR is not
-   APPROVED, approve: `gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input FILE` with
-   event APPROVE.
+3. Keep your standing review state honest. GitHub takes your latest APPROVE or
+   REQUEST_CHANGES as your state on this PR; a COMMENT review does not change it. Submit
+   with `gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input FILE`.
+   - A thread of yours is still open and your latest review is APPROVED: `event:
+     REQUEST_CHANGES` with a one-line body naming what is open.
+   - No thread of yours is open any more and your latest review is not APPROVED:
+     `event: APPROVE`.
 
 Reply in Korean, in a neutral tone: say 코멘트 or 피드백, never 지적.

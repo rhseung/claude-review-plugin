@@ -11,8 +11,8 @@ Arguments, in order: REPO (owner/name), PR NUMBER, HEAD SHA, EVENT. They are: $A
 
 The PR head is checked out in the working directory. Read files there to see the current
 code. Use `gh pr diff` for the change set and `gh api` for every GitHub write. You are
-explicitly authorized to submit reviews, reply to review threads, resolve threads, dismiss
-your own reviews and approve this PR. Do it without asking.
+explicitly authorized to submit reviews, reply to review threads, resolve threads and
+approve this PR. Do it without asking.
 
 Every request body, GraphQL queries included, goes through a file: write the JSON with the
 Write tool under .claude-review/ in the repo root and pass it with `--input`. Keep every
@@ -54,19 +54,21 @@ covered by one of your open threads.
 Findings go up as a single review so the author gets one notification:
 
     gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input .claude-review/review.json
-    {"event":"COMMENT","body":"...",
+    {"event":"REQUEST_CHANGES","body":"...",
      "comments":[{"path":"src/x.ts","line":42,"side":"RIGHT","body":"..."}]}
 
 `line` must be a line of the NEW file that appears in the PR diff. Check the hunk before
 submitting. If GitHub answers 422, drop the offending comment and resubmit the rest.
 
-Verdict:
-- New findings: `event: COMMENT`. If your latest review on this PR is APPROVED, dismiss it
-  first: `gh api -X PUT repos/OWNER/REPO/pulls/NUMBER/reviews/REVIEW_ID/dismissals --input FILE`
-  with a message saying new comments arrived.
-- No new findings and none of your threads open: `event: APPROVE` with a one-line body,
+Verdict. GitHub takes your latest APPROVE or REQUEST_CHANGES as your standing state on this
+PR; a COMMENT review leaves that state untouched. So the event answers one question: is
+anything still waiting on the author?
+- New findings: `event: REQUEST_CHANGES`. It supersedes an earlier APPROVED on its own -
+  there is nothing to dismiss and nothing to re-read first.
+- No new findings but a thread of yours is still open: submit nothing, unless your latest
+  review is APPROVED - then `event: REQUEST_CHANGES` with a body naming what is open.
+- No new findings and no thread of yours open: `event: APPROVE` with a one-line body,
   unless your latest review is already APPROVED.
-- No new findings but your threads still open: submit nothing.
 
 The review body is the summary: threads closed, new findings, threads still open, verdict.
 Write every comment, reply and body in Korean, in a neutral tone: say 코멘트 or 피드백,

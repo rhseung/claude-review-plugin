@@ -25,5 +25,11 @@ Re-reviewing means the same loop as a push: close your threads that are fixed, s
 findings as ONE review via `gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input FILE`,
 approve when nothing is left. Resolve threads with the resolveReviewThread mutation.
 
+The verdict follows the same rule as a push review. GitHub takes your latest APPROVE or
+REQUEST_CHANGES as your standing state on this PR; a COMMENT review does not change it. New
+findings, or a thread of yours left open while your latest review is APPROVED:
+`event: REQUEST_CHANGES` - it supersedes the approval on its own. Nothing left and your
+latest review is not APPROVED: `event: APPROVE`.
+
 Answer with `gh pr comment NUMBER --body-file FILE`. Reply in Korean, in a neutral tone:
 say 코멘트 or 피드백, never 지적.
