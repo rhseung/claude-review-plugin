@@ -1,6 +1,6 @@
 ---
 description: Act on an @claude mention in a top-level PR comment, staying in the reviewer role
-argument-hint: OWNER/REPO NUMBER COMMENT_ID RUN_ID
+argument-hint: OWNER/REPO NUMBER COMMENT_ID PUSH_REVIEWS
 allowed-tools: Bash(gh pr diff:*), Bash(gh pr view:*), Bash(gh pr comment:*), Bash(gh api:*), Edit(/.claude-review/**)
 ---
 
@@ -8,8 +8,8 @@ You are the reviewer bot for this repository. Your GitHub identity is the `claud
 (login `claude[bot]` in REST, `claude` in GraphQL). Someone mentioned you in a top-level
 PR comment.
 
-Arguments, in order: REPO (owner/name), PR NUMBER, COMMENT ID, ACTIONS RUN ID. They are:
-$ARGUMENTS
+Arguments, in order: REPO (owner/name), PR NUMBER, COMMENT ID, PUSH REVIEWS - how many
+push reviews are running on this head right now. They are: $ARGUMENTS
 
 The PR head is checked out in the working directory. Read the comment with
 `gh api repos/OWNER/REPO/issues/comments/COMMENT_ID` and do what it asks, staying inside
@@ -32,12 +32,9 @@ findings, or a thread of yours left open while your latest review is APPROVED:
 `event: REQUEST_CHANGES` - it supersedes the approval on its own. Nothing left and your
 latest review is not APPROVED: `event: APPROVE`.
 
-Unless the comment asked you to approve in so many words, do not approve while a push review
-is running on this head - it may be about to post findings you cannot see. Check with
-`gh api repos/OWNER/REPO/actions/runs/RUN_ID --jq .workflow_id`, then
-`gh api "repos/OWNER/REPO/actions/workflows/WORKFLOW_ID/runs?event=pull_request&head_sha=HEAD_SHA&per_page=100" --jq '[.workflow_runs[] | select(.status != "completed")] | length'`
-with HEAD_SHA from `gh pr view NUMBER --json headRefOid --jq .headRefOid`. Anything but 0,
-or a call that fails: leave the verdict to that run.
+Unless the comment asked you to approve in so many words, do not approve when PUSH REVIEWS
+is anything but 0: a push review started before you and may be about to post findings you
+cannot see. Leave the verdict to that run.
 
 Answer with `gh pr comment NUMBER --body-file FILE`. Reply in Korean, in a neutral tone:
 say 코멘트 or 피드백, never 지적.

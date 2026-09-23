@@ -35,7 +35,7 @@ jobs:
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 
   # thread에 달린 답글 -> 타당하면 닫음 -> 열린 게 남으면 request changes, 전부 닫혔으면
-  # approve. run_id로 찾은 push 리뷰가 돌고 있으면 승인은 그쪽에 맡긴다 (actions: read 필요)
+  # approve. 먼저 시작한 push 리뷰가 돌고 있으면 승인은 그쪽에 맡긴다
   reply:
     # App 토큰으로 단 내 답글도 이 이벤트를 다시 쏜다
     if: >-
@@ -49,6 +49,19 @@ jobs:
     concurrency:
       group: review-comment-${{ github.event.pull_request.number || github.event.issue.number }}
     steps:
+      # 봇의 앱 토큰은 Actions 를 못 읽을 수 있다. 조회는 GITHUB_TOKEN 으로 여기서 한다
+      - id: inflight
+        run: |
+          wf=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID" --jq .workflow_id) || wf=
+          n=$(gh api "repos/$GH_REPO/actions/workflows/$wf/runs?event=pull_request&head_sha=$SHA&per_page=100" --jq '[.workflow_runs[] | select(.status != "completed")] | length') || n=
+          # 조회가 실패해도 잡은 살리고, 승인을 미루는 쪽으로 기운다
+          [ -n "$n" ] || n=1
+          echo "count=$n" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
@@ -58,7 +71,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: https://github.com/rhseung/claude-review-plugin.git
           plugins: review@rhseung
-          prompt: /review:reply ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.comment.id }} ${{ github.run_id }}
+          prompt: /review:reply ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.comment.id }} ${{ steps.inflight.outputs.count }}
           claude_args: |
             --model claude-sonnet-5
             --max-turns 80
@@ -84,6 +97,20 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.issue.number }}
 
+      # 봇의 앱 토큰은 Actions 를 못 읽을 수 있다. 조회는 GITHUB_TOKEN 으로 여기서 한다
+      - id: inflight
+        run: |
+          wf=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID" --jq .workflow_id) || wf=
+          sha=$(gh pr view "$PR" --json headRefOid --jq .headRefOid) || sha=
+          n=$(gh api "repos/$GH_REPO/actions/workflows/$wf/runs?event=pull_request&head_sha=$sha&per_page=100" --jq '[.workflow_runs[] | select(.status != "completed")] | length') || n=
+          # 조회가 실패해도 잡은 살리고, 승인을 미루는 쪽으로 기운다
+          [ -n "$n" ] || n=1
+          echo "count=$n" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+
       - uses: actions/checkout@v6
         with:
           ref: refs/pull/${{ github.event.issue.number }}/head
@@ -94,7 +121,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: https://github.com/rhseung/claude-review-plugin.git
           plugins: review@rhseung
-          prompt: /review:mention ${{ github.repository }} ${{ github.event.issue.number }} ${{ github.event.comment.id }} ${{ github.run_id }}
+          prompt: /review:mention ${{ github.repository }} ${{ github.event.issue.number }} ${{ github.event.comment.id }} ${{ steps.inflight.outputs.count }}
           claude_args: |
             --model claude-sonnet-5
             --max-turns 150
