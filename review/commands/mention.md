@@ -22,7 +22,8 @@ Write tool under .claude-review/ in the repo root and pass it with `--input`. Ke
 shell command on one line. Do not use mkdir, cat, printf or heredocs - only the Write tool
 creates files.
 
-Re-reviewing means the same loop as a push: close your threads that are fixed, submit new
+Re-reviewing means the same loop as a push: close your threads that are fixed, review against
+AGENTS.md and `.github/review.md` (when it exists) as a push review does, submit new
 findings as ONE review via `gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input FILE`,
 approve when nothing is left. Resolve threads with the resolveReviewThread mutation.
 

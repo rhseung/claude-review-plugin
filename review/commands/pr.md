@@ -37,17 +37,22 @@ still unresolved, read the file at HEAD and decide whether the issue is fixed.
 
 ## Step 2 - review what is new
 
-Review the PR against AGENTS.md in the repo root. Look for what a linter cannot see:
-- MVVM layer violations that slipped past eslint-plugin-boundaries
-- a View importing `@/api` or a ViewModel reaching into UI
-- a new component shipped without `index.stories.tsx`
-- user-facing strings that skipped the i18n namespace
-- stale closures, effect ordering, cache invalidation that never fires
+Review the PR against the rules in AGENTS.md in the repo root (CLAUDE.md when there is no
+AGENTS.md). Read `.github/review.md` too when it exists: it is this repository's own review
+guide - what to look for and what its tools already catch - and it takes precedence over
+the defaults below.
+
+Without a guide, look for what the build, the tests and the linters cannot see:
+- a rule from AGENTS.md broken in a way no check would fail on
+- logic errors: a missed edge case, a wrong condition, state that goes stale, an error that
+  is swallowed
+- a change that leaves related code behind: a caller, a test, docs or a generated file not
+  updated with it
 - dead abstraction: an interface with one implementation, config for a value that never
   changes, a wrapper that only forwards
 
-Do NOT mention anything ESLint, Prettier or TypeScript already catch. Skip anything already
-covered by one of your open threads.
+Do NOT mention anything the repository's compiler, linters, formatters or CI checks already
+catch. Skip anything already covered by one of your open threads.
 
 ## Step 3 - submit ONE review
 
