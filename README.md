@@ -1,9 +1,10 @@
 # claude-review-plugin
 
 PR 리뷰를 Claude에 맡기는 플러그인입니다. PR을 생성할 때와 push 할 때마다 `AGENTS.md`에
-적힌 규칙을 기준으로 diff를 검토하고, 규칙을 위반한 지점에 인라인 코멘트를 남깁니다.
-수정한 뒤에 다시 push 하면 해결된 thread를 닫고 새로 추가된 diff만 검토합니다. 열린
-thread가 남아 있으면 request changes로, 남은 사항이 없으면 approve로 리뷰를 제출합니다.
+적힌 규칙과 저장소의 리뷰 지침(`.github/review.md`)을 기준으로 diff를 검토하고, 규칙을
+위반한 지점에 인라인 코멘트를 남깁니다. 수정한 뒤에 다시 push 하면 해결된 thread를 닫고
+새로 추가된 diff만 검토합니다. 열린 thread가 남아 있으면 request changes로, 남은 사항이
+없으면 approve로 리뷰를 제출합니다.
 
 ## 설치
 
@@ -35,6 +36,21 @@ open https://github.com/apps/claude/installations/new   # Claude GitHub App. 저
 claude setup-token                                      # 구독 OAuth 토큰 (1년). Pro/Max/Team
 gh secret set CLAUDE_CODE_OAUTH_TOKEN                   # 위 토큰 붙여넣기
 gh variable set ENABLE_CLAUDE_REVIEW --body true
+```
+
+## 리뷰 지침
+
+저장소마다 무엇을 볼지는 `.github/review.md`에 적습니다. 파일이 없으면 `AGENTS.md`의
+규칙과 범용 기준(로직 오류, 함께 바뀌지 않은 코드, 쓸모없는 추상화)으로만 검토합니다.
+
+```markdown
+# 리뷰 지침
+
+## 볼 것
+- View가 `@/api`를 import하거나 ViewModel이 UI에 손대는 경우
+
+## 보지 않을 것
+- ESLint, Prettier, TypeScript가 잡는 것
 ```
 
 ## 사용법
