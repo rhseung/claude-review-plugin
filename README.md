@@ -1,10 +1,23 @@
 # claude-review-plugin
 
-PR 리뷰를 Claude에 맡기는 플러그인입니다. PR을 생성할 때와 push 할 때마다 `AGENTS.md`에
-적힌 규칙과 저장소의 리뷰 지침(`.github/review.md`)을 기준으로 diff를 검토하고, 규칙을
-위반한 지점에 인라인 코멘트를 남깁니다. 수정한 뒤에 다시 push 하면 해결된 thread를 닫고
-새로 추가된 diff만 검토합니다. 열린 thread가 남아 있으면 request changes로, 남은 사항이
-없으면 approve로 리뷰를 제출합니다.
+PR 리뷰를 Claude에 맡기는 플러그인입니다. PR을 생성하면 `AGENTS.md`에 적힌 규칙과 저장소의
+리뷰 지침(`.github/review.md`)을 기준으로 PR 전체 diff를 검토하고 인라인 코멘트를 남깁니다.
+
+이후 push 할 때마다 해결된 thread를 닫고, 지난 리뷰 이후에 바뀐 부분과 그 변경이 영향을 주는
+코드만 검토합니다. force push나 rebase로 지난 리뷰의 커밋이 사라졌으면 PR 전체를 다시
+검토합니다. base 브랜치를 merge만 했으면 PR과 base 브랜치가 함께 바꾼 파일만 확인합니다.
+
+모든 코멘트는 심각도 태그로 시작합니다.
+
+| 태그 | 뜻 | merge를 막는가 |
+|---|---|---|
+| `[버그]` | 동작이 틀림 | 막음 |
+| `[데이터]` | 데이터 손실이나 보안 문제 | 막음 |
+| `[규칙]` | `AGENTS.md`나 리뷰 지침의 규칙 위반 | 막음 |
+| `[사소]` | 그 밖의 개선점 | 막지 않음 |
+
+막는 코멘트가 새로 나왔거나 막는 thread가 열려 있으면 request changes로, 아니면 approve로
+리뷰를 제출합니다. 세 번째 리뷰 이후로는 `[버그]`와 `[데이터]`만 코멘트합니다.
 
 ## 설치
 
@@ -27,7 +40,7 @@ permissions:
 jobs:
   review:
     if: vars.ENABLE_CLAUDE_REVIEW == 'true'
-    uses: rhseung/claude-review-plugin/.github/workflows/review.yml@main
+    uses: rhseung/claude-review-plugin/.github/workflows/review.yml@v1
     secrets: inherit
 ```
 
@@ -71,13 +84,13 @@ claude plugin marketplace add rhseung/claude-review-plugin
 claude plugin install review@rhseung
 ```
 
-`/review:pr OWNER/REPO NUMBER HEAD_SHA synchronize`를 실행하면 같은 검토를 로컬에서
-수행합니다.
+`/review:pr OWNER/REPO NUMBER HEAD_SHA`를 실행하면 PR 전체를 같은 기준으로 로컬에서
+검토합니다.
 
 ## 구성
 
-- `review/commands/pr.md` - push 할 때마다 실행되는 리뷰 루프
+- `review/commands/pr.md` - PR을 열 때와 push 할 때마다 실행되는 리뷰 루프
 - `review/commands/reply.md` - thread 답글 응답
 - `review/commands/mention.md` - `@claude` 멘션 처리
-- `.github/workflows/review.yml` - 위 세 가지를 잡으로 묶은 reusable workflow. 검토에는
-  opus를 사용하고, 나머지에는 sonnet을 사용합니다.
+- `.github/workflows/review.yml` - 위 세 가지를 잡으로 묶은 reusable workflow. 첫 리뷰에는
+  opus를 사용하고, 이후 리뷰와 답글, 멘션에는 sonnet을 사용합니다.
