@@ -97,16 +97,16 @@ catch. Skip anything already covered by one of your open threads.
 ## Step 3 - submit ONE review
 
 Every push review submits exactly one review, even when there is nothing new: the next run
-reads its `commit_id` to know where this one stopped. Findings go up in it so the author
-gets one notification:
+reads the marker in its body to know where this one stopped. Findings go up in it so the
+author gets one notification:
 
     gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input .claude-review/review.json
-    {"commit_id":"HEAD_SHA","event":"REQUEST_CHANGES","body":"...\n\n<!-- claude-review -->",
+    {"commit_id":"HEAD_SHA","event":"REQUEST_CHANGES","body":"...\n\n<!-- claude-review:HEAD_SHA -->",
      "comments":[{"path":"src/x.ts","line":42,"side":"RIGHT","body":"[버그] ..."}]}
 
 - `commit_id` is always HEAD SHA.
-- The body always ends with the line `<!-- claude-review -->`. Never put it in any other
-  review, reply or comment.
+- The body always ends with the line `<!-- claude-review:HEAD_SHA -->`, with the full
+  40-character HEAD SHA. Never put this marker in any other review, reply or comment.
 - `line` must be a line of the NEW file that appears in the PR diff. Check the hunk before
   submitting. If GitHub answers 422, move the offending finding into the body (path, line
   and text) and resubmit.

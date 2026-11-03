@@ -36,12 +36,12 @@ does not start with `[사소]` (untagged threads from before the tags count as b
      mutation.
    - A question: answer it in the thread. Resolve only if nothing is left to do.
    - Not valid: reply with the reason and leave the thread open.
-   - The author says the finding matters less than its tag says: you may agree in the
-     reply. A thread you agree is `[사소]` no longer blocks; say so in the reply.
+   - The author says the finding matters less than its tag says: if you agree it is minor
+     and need not hold the PR, say so in the reply and resolve the thread.
 3. Keep your standing review state honest. GitHub takes your latest APPROVE or
    REQUEST_CHANGES as your state on this PR; a COMMENT review does not change it. Submit
    with `gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input FILE`. Never put
-   `<!-- claude-review -->` in it; that marker belongs to push reviews.
+   a `<!-- claude-review:... -->` marker in it; that marker belongs to push reviews.
    - A blocking thread of yours is still open and your latest review is APPROVED:
      `event: REQUEST_CHANGES` with a one-line body naming what is open.
    - No blocking thread of yours is open any more and your latest review is not APPROVED:

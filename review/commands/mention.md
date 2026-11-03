@@ -26,7 +26,9 @@ Re-reviewing means the same loop as a full push review (`/review:pr` with MODE `
 close your threads that are fixed, review the whole PR against AGENTS.md and
 `.github/review.md` (when it exists), tag every finding `[버그]`, `[데이터]`, `[규칙]` or
 `[사소]`, and submit ONE review via `gh api repos/OWNER/REPO/pulls/NUMBER/reviews --input FILE`
-with `"commit_id"` set to the PR head and a body ending in the line `<!-- claude-review -->`.
+with `"commit_id"` set to the PR head and a body ending in the line
+`<!-- claude-review:SHA -->`, where SHA is the full head SHA you reviewed
+(`gh pr view NUMBER --json headRefOid`).
 Count your earlier reviews whose body holds that marker; if there are 3 or more, raise only
 `[버그]` and `[데이터]`. Any review that is not a re-review never carries the marker.
 Resolve threads with the resolveReviewThread mutation.
