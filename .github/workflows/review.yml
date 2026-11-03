@@ -24,10 +24,11 @@ jobs:
       # 으로 여기서 한다. 조회가 실패하면 전체 리뷰로 기운다: 범위를 넓게 잡는 쪽이 안전하다
       - id: plan
         run: |
-          # pr.md 가 push 리뷰마다 남기는 표시. reply/mention 이 낸 리뷰는 범위를 덮지 않으므로 세지 않는다
-          marker='<!-- claude-review -->'
+          # pr.md 가 push 리뷰마다 본문에 남기는 <!-- claude-review:SHA -->. reply/mention 이 낸 리뷰는
+          # 범위를 덮지 않으므로 세지 않는다. 리뷰의 commit_id 는 쓰지 않는다: dismiss 되지 않은
+          # approval 은 push 때 GitHub 가 commit_id 를 새 HEAD 로 옮겨서, 다음 push 가 "변경 없음"이 된다
           reviewed=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/reviews?per_page=100" \
-            --jq ".[] | select(.user.login == \"claude[bot]\" and (.body // \"\" | contains(\"$marker\"))) | .commit_id") || reviewed=
+            --jq '.[] | select(.user.login == "claude[bot]") | .body // "" | capture("<!-- claude-review:(?<sha>[0-9a-f]{40}) -->") | .sha') || reviewed=
           # grep -c 는 0건일 때 1 로 끝나고, run 은 bash -e 로 돈다
           round=$(( $(grep -c . <<< "$reviewed" || true) + 1 ))
           last=$(tail -n1 <<< "$reviewed")
