@@ -73,6 +73,9 @@ gh variable set ENABLE_CLAUDE_REVIEW --body true
   하지 않아도 다시 검토합니다.
 - 비활성화하려면 `gh variable set ENABLE_CLAUDE_REVIEW --body false`를 실행합니다.
 - 포크에서 올라온 PR은 검토 대상에서 제외합니다.
+- 봇이 연 PR(Dependabot 등)은 기본으로 검토하지 않습니다. 검토하려면 `with: { allowed_bots: 'dependabot[bot]' }`를
+  넘기고, Dependabot이 띄운 실행은 Dependabot 시크릿만 받으므로
+  `gh secret set CLAUDE_CODE_OAUTH_TOKEN --app dependabot`으로 토큰을 함께 넣습니다.
 - 토큰이 만료되면 `claude setup-token`과 `gh secret set`을 다시 실행합니다.
 - 봇은 요청 본문을 저장소 안의 `.claude-review/`에 기록합니다. 커밋할 대상은 아니므로
   `.gitignore`에 등록해 두시기를 권합니다.

@@ -2,6 +2,12 @@ name: review
 
 on:
   workflow_call:
+    inputs:
+      # claude-code-action 은 봇이 띄운 실행을 거절한다. Dependabot PR 을 리뷰하려면 dependabot[bot] 을 넘긴다.
+      # Dependabot 이 띄운 실행은 Actions 시크릿이 아니라 Dependabot 시크릿을 받는다
+      allowed_bots:
+        type: string
+        default: ''
 
 jobs:
   # PR 열림/push -> 수정된 thread 닫기 -> 첫 리뷰는 PR 전체, 이후는 지난 리뷰 뒤의 변경만
@@ -83,6 +89,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: ${{ inputs.allowed_bots }}
           plugin_marketplaces: ${{ github.workspace }}/.claude-review/plugin
           plugins: review@rhseung
           prompt: /review:pr ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ github.event.pull_request.head.sha }} ${{ steps.plan.outputs.mode }} ${{ steps.plan.outputs.base }} ${{ steps.plan.outputs.round }}
