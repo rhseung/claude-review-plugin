@@ -8,8 +8,6 @@ on:
       allowed_bots:
         type: string
         default: ''
-    # secrets: inherit 는 같은 조직이나 enterprise 안에서만 넘어간다. 다른 계정의 저장소에서 부르면
-    # 빈 값이 오므로, 호출자가 secrets: { CLAUDE_CODE_OAUTH_TOKEN: ... } 로 직접 넘길 수 있게 선언한다
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: false
