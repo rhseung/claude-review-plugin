@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -21,6 +22,8 @@ ROOT = Path(__file__).resolve().parent.parent
 EVAL = ROOT / "eval"
 ALLOWED = "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 BLOCKING_ALERTS = {"CAUTION", "WARNING", "IMPORTANT"}
+# 첫 실행에서 작업들이 같은 저장소를 동시에 clone 하면 하나만 살아남는다. worktree add 도 같은 lock 을 잡는다
+CHECKOUT = threading.Lock()
 
 
 def sh(*args, cwd=None, env=None, check=True, timeout=None):
@@ -42,6 +45,11 @@ def plugin_dir(args, work):
 
 
 def checkout(case, k, args, work):
+    with CHECKOUT:
+        return _checkout(case, k, args, work)
+
+
+def _checkout(case, k, args, work):
     # 로컬 클론의 객체를 빌려 쓰는 별도 저장소. 사용자의 클론에는 worktree 도 ref 도 남기지 않는다
     repo = work / "repos" / case["repo"].replace("/", "__")
     if not repo.exists():
