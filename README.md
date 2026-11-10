@@ -41,8 +41,13 @@ jobs:
   review:
     if: vars.ENABLE_CLAUDE_REVIEW == 'true'
     uses: rhseung/claude-review-plugin/.github/workflows/review.yml@v1
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
+
+`secrets: inherit`는 같은 조직이나 enterprise 안의 workflow에만 secret을 넘깁니다. 이 플러그인은
+개인 계정 저장소에 있으므로, 조직 저장소에서 부를 때 `inherit`를 쓰면 토큰이 빈 값으로 넘어갑니다.
+위처럼 토큰을 직접 넘깁니다.
 
 ```sh
 open https://github.com/apps/claude/installations/new   # Claude GitHub App. 저장소 선택. 최초 1회만

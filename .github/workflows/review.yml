@@ -8,6 +8,9 @@ on:
       allowed_bots:
         type: string
         default: ''
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: false
 
 jobs:
   # PR 열림/push -> 수정된 thread 닫기 -> 첫 리뷰는 PR 전체, 이후는 지난 리뷰 뒤의 변경만
