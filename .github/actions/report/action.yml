@@ -1,0 +1,91 @@
+name: report
+description: 리뷰 잡이 실패하면 PR에 이유와 대처법을 남기고, 다음에 성공하면 지운다
+
+inputs:
+  job:
+    description: review, reply 또는 mention
+    required: true
+  pr:
+    required: true
+  failed:
+    description: "'true'면 알림을 남기고, 아니면 이 잡의 알림을 지운다"
+    required: true
+  execution_file:
+    required: false
+    default: ""
+  has_token:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        JOB: ${{ inputs.job }}
+        PR: ${{ inputs.pr }}
+        FAILED: ${{ inputs.failed }}
+        EXEC: ${{ inputs.execution_file }}
+        HAS_TOKEN: ${{ inputs.has_token }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        # 잡마다 따로 둔다. 답글 잡이 성공했다고 push 리뷰의 실패 알림을 지우면 안 된다
+        marker="<!-- claude-review:failure:$JOB -->"
+        old=$(gh api "repos/$GH_REPO/issues/$PR/comments" --paginate \
+          --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$marker\"))) | .id" | tail -1) || old=
+
+        # 머지 뒤 브랜치가 지워져 체크아웃이 실패한 답글 잡 같은 건 알릴 곳이 없다
+        if [ "$FAILED" = true ] && [ "$(gh pr view "$PR" --json state --jq .state)" != OPEN ]; then
+          exit 0
+        fi
+
+        if [ "$FAILED" != true ]; then
+          [ -z "$old" ] || gh api -X DELETE "repos/$GH_REPO/issues/comments/$old" >/dev/null || true
+          exit 0
+        fi
+
+        case "$JOB" in
+          review) what="리뷰" ;;
+          reply) what="thread 답글 응답" ;;
+          *) what="\`@claude\` 응답" ;;
+        esac
+
+        result= subtype=
+        if [ -s "$EXEC" ]; then
+          result=$(jq -r '[.[] | select(.type == "result")] | last | .result // empty' "$EXEC" 2>/dev/null | head -c 300) || result=
+          subtype=$(jq -r '[.[] | select(.type == "result")] | last | .subtype // empty' "$EXEC" 2>/dev/null) || subtype=
+        fi
+
+        shopt -s nocasematch
+        if [ "$HAS_TOKEN" != true ]; then
+          why="\`CLAUDE_CODE_OAUTH_TOKEN\` 시크릿 누락"
+          fix="\`claude setup-token\`으로 토큰을 만들어 \`gh secret set CLAUDE_CODE_OAUTH_TOKEN\`으로 등록하면 다음 push부터 검토합니다."
+        elif [[ "$result" =~ (usage.limit|hit.your.limit|rate.limit|429|overloaded) ]]; then
+          why="Claude 사용량 한도 초과"
+          fix="한도가 풀린 뒤 PR에 \`@claude review\`를 남기면 다시 검토합니다."
+        elif [[ "$result" =~ (oauth|expired|invalid.api.key|401|authentication|/login) ]]; then
+          why="Claude 토큰 만료 또는 인증 실패"
+          fix="\`claude setup-token\`으로 새 토큰을 만들어 \`gh secret set CLAUDE_CODE_OAUTH_TOKEN\`으로 교체한 뒤 PR에 \`@claude review\`를 남기면 다시 검토합니다."
+        elif [ "$subtype" = error_max_turns ]; then
+          why="턴 한도 초과"
+          fix="PR을 작은 단위로 나눠 올리거나 PR에 \`@claude review\`를 남기면 다시 검토합니다."
+        elif [ -z "$subtype" ]; then
+          why="결과 없는 실행 종료"
+          fix="시작 전 오류, 시간 초과, GitHub 일시 오류 가운데 어느 쪽인지 실행 로그에서 확인한 뒤 PR에 \`@claude review\`를 남기면 다시 검토합니다."
+        else
+          why="Claude 실행 오류"
+          fix="실행 로그에서 원인을 확인한 뒤 PR에 \`@claude review\`를 남기면 다시 검토합니다."
+        fi
+
+        # 빈 줄 없이 이어 쓰면 다음 줄이 알림 인용문에 빨려 들어간다
+        nl=$'\n'
+        body="> [!WARNING]${nl}> **$what 실패**: $why${nl}${nl}"
+        [ -z "$result" ] || body+="\`\`\`${nl}${result}${nl}\`\`\`${nl}${nl}"
+        body+="$fix${nl}${nl}[실행 로그]($RUN_URL)${nl}${nl}$marker"
+
+        if [ -n "$old" ]; then
+          gh api -X PATCH "repos/$GH_REPO/issues/comments/$old" -f body="$body" >/dev/null
+        else
+          gh api "repos/$GH_REPO/issues/$PR/comments" -f body="$body" >/dev/null
+        fi

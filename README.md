@@ -82,6 +82,8 @@ gh variable set ENABLE_CLAUDE_REVIEW --body true
 - 봇이 연 PR(Dependabot 등)은 기본으로 검토하지 않습니다. 검토하려면 `with: { allowed_bots: 'dependabot[bot]' }`를
   넘기고, Dependabot이 띄운 실행은 Dependabot 시크릿만 받으므로
   `gh secret set CLAUDE_CODE_OAUTH_TOKEN --app dependabot`으로 토큰을 함께 넣습니다.
+- 토큰 만료, 사용량 한도처럼 봇이 리뷰를 마치지 못하면 PR에 이유와 대처법을 담은 코멘트가
+  달립니다. 다음 실행이 성공하면 그 코멘트는 지워집니다.
 - 토큰이 만료되면 `claude setup-token`과 `gh secret set`을 다시 실행합니다.
 - 봇은 요청 본문을 저장소 안의 `.claude-review/`에 기록합니다. 커밋할 대상은 아니므로
   `.gitignore`에 등록해 두시기를 권합니다.
