@@ -223,10 +223,10 @@ def run_case(case, k, args, plugin, work, outdir):
         # 한도에 걸린 실행은 리뷰를 못 낸 것이 아니라 시작도 못 한 것이다. 섞이면 프롬프트 탓으로 읽힌다
         limit = re.search(r"hit your .*limit|usage limit", meta.get("result") or "", re.I)
         error = "usage limit" if limit else "no review submitted"
-        return {"case": case["id"], "repo": case["repo"], "run": k, "history": case["history"], "meta": meta, "error": error}
+        return {"case": case["id"], "repo": case["repo"], "set": case.get("set", "tuned"), "run": k, "history": case["history"], "meta": meta, "error": error}
     (out / "review.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     verdict = judge(case, result, args, out)
-    return {"case": case["id"], "repo": case["repo"], "run": k, "history": case["history"], "meta": meta, **score(case, result, verdict)}
+    return {"case": case["id"], "repo": case["repo"], "set": case.get("set", "tuned"), "run": k, "history": case["history"], "meta": meta, **score(case, result, verdict)}
 
 
 def summarize(results, label, args):
@@ -258,10 +258,11 @@ def summarize(results, label, args):
         tot["defects"] += total
         tot["caught"] += caught
         tot["blocking"] += blocking
-        rp = per_repo.setdefault(runs[0].get("repo", "?"), [0, 0, 0])
-        rp[0] += caught
-        rp[1] += blocking
-        rp[2] += total
+        for key in (runs[0].get("set", "tuned"), runs[0].get("repo", "?")):
+            rp = per_repo.setdefault(key, [0, 0, 0])
+            rp[0] += caught
+            rp[1] += blocking
+            rp[2] += total
         comments = sum(r["comments"] for r in ok) / len(ok)
         o = {v: sum(r["others"][v] for r in ok) for v in ("valid", "doubtful", "wrong")}
         events = {}
@@ -322,7 +323,7 @@ def main():
             try:
                 r = f.result()
             except Exception as e:  # 한 사례가 실패해도 나머지 결과는 남긴다
-                r = {"case": c["id"], "repo": c["repo"], "run": k, "history": c["history"], "meta": {},
+                r = {"case": c["id"], "repo": c["repo"], "set": c.get("set", "tuned"), "run": k, "history": c["history"], "meta": {},
                      "error": f"{type(e).__name__}: {e}"[:200]}
             results.append(r)
             print(f"done {c['id']} r{k}", file=sys.stderr)

@@ -13,7 +13,8 @@
         "where": "packages/folio-core/sources/folio-actions/work-actions.swift, folio-cli generated commands",
         "bug": "After generating set commands from Patch fields, `assignment set --score <component>:9/10` on an assignment counted in several grade components replaces the whole score list, so the scores of the components not given are erased. Before this PR only the given component's score changed. Fixed later in #383."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "406-sheet-save-disabled",
@@ -29,7 +30,8 @@
         "where": "app/features/course/session-sheet-model.swift, folio-domain course/session-menu.swift",
         "bug": "In the session sheet, a suggested progress row that the session did not have starts checked. With no recording the suggestion has a start page but no end page, so `refusal` blocks saving until an end page is picked, while the reason sentence for a row missing its end is hidden. Opening the sheet during a class to only link units leaves the save button disabled with no explanation. Fixed later in #423."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "407-preview-margin",
@@ -45,7 +47,8 @@
         "where": "app/platform/note-text/note-math.swift and its callers (math palette, completion menu in source-assist.swift)",
         "bug": "The PR makes only the bubble trim pictures to their ink; the palette and the completion menu now get untrimmed pictures with a transparent 1/4em margin around the KaTeX box. Those callers still fit the whole picture, margin included, into their row or cell height, so symbols draw smaller than in the note line (and the completion row, which clamps only the height, squashes them). Fixed later in #428."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "417-wheel-never-reaches-bubble",
@@ -67,7 +70,8 @@
         "where": "app/platform/note-text/source-view.swift",
         "bug": "The bubble's maximum width comes from the text view's visible width (the whole window), so a long formula's bubble extends past the note column to the window edge and over the scroll bar. Fixed later in #430."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "418-popover-height",
@@ -83,7 +87,8 @@
         "where": "app/design/quick-add-field.swift (repeat chip custom popover)",
         "bug": "In quick add's repeat chip, the custom-rule popover shows a weekday row only for the week unit. A macOS popover keeps proposing its last height, so switching week to month and back to week squeezes the weekday row into the shorter height and the interval and weekday rows overflow the card. The popover content needs `.fixedSize(horizontal: false, vertical: true)`, as the toolbar quick-add popover already does. Fixed later in #425."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "393-back-to-back-recording",
@@ -99,7 +104,8 @@
         "where": "app/app/workspace-class-start.swift",
         "bug": "The `.recording` step is marked done before checking `recorder.isActive`, so when the previous class is still recording (back-to-back classes with stop-after-N-minutes), the next class's recording is skipped and never retried."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "420-version-script-ci-filter",
@@ -115,7 +121,8 @@
         "where": "mise.toml, .github/workflows/ci.yml",
         "bug": "`generate` now runs `scripts/version.sh xcconfig` and its output feeds every Xcode build, but the CI `changes` job treats `^scripts/` as irrelevant to the Xcode jobs, so a PR that only breaks `scripts/version.sh` skips all Xcode builds and fails only on main."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "418-repeat-weekday",
@@ -137,7 +144,8 @@
         "where": "app/features/course/assignments-model.swift",
         "bug": "The hint's next due date calls `next(after: due)` without the series' first day, while `continueRepeating` passes it, so for a monthly series started on the 31st the hint says 12/30 but the next assignment is created on 12/31. The original review filed this as minor; it is a wrong result for a concrete input."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "398-math-failure-cache",
@@ -159,7 +167,8 @@
         "where": "app/platform/note-text/note-math.swift",
         "bug": "`MathPage` has no `didFail`/`didFailProvisionalNavigation`, so if the page load fails `loaded` stays false forever, the `onLoad` wait and the timeout loop never end, `busy` stays true and every formula in the session stops rendering. The original review filed this as minor; it is a hang for a concrete failure."
       }
-    ]
+    ],
+    "set": "tuned"
   },
   {
     "id": "426-weekend-title-word",
@@ -175,6 +184,438 @@
         "where": "packages/folio-core/sources/folio-domain/course/assignment-repeat.swift, quick-add grammar",
         "bug": "`weekdayWord` reads `평일` and `주말` as weekday sets even without 마다, and `bindWeekdays` keeps a set whenever any weekly repeat is anywhere on the line, so the title word in `선대 주말 과제 매주 금` becomes the repeat (title `과제`, repeat 매주 토, 일)."
       }
-    ]
+    ],
+    "set": "tuned"
+  },
+  {
+    "id": "38-article-date-build-timezone",
+    "repo": "gsainfoteam/news-fe",
+    "pr": 38,
+    "head": "e1ed9e8bcb90ceb4718fe507aeb15cf01bae7d2a",
+    "base": "64b4d5091c65a6acae76288108a0f7b21054639f",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "date-formatted-in-build-timezone",
+        "blocking": true,
+        "where": "src/features/article/views/components/article-card/index.tsx, src/common/lib/dayjs.ts",
+        "bug": "ArticleCard formats publishedAt with `useDayjs()(...).format(\"YYYY.MM.DD\")`, and useDayjs applies no time zone, so the date follows the process/browser TZ. The static site is built in UTC (GitHub Actions/Cloudflare), so an article published 2026-10-28T16:00Z (KST Oct 29 01:00) is baked into the HTML as 2026.10.28: every article published 00:00-09:00 KST shows the previous day, and a hydrated island in a KST browser disagrees with the static HTML. Fixed in bd0246cd by extending dayjs with utc/timezone and formatting in Asia/Seoul."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "39-admin-pagination-keyboard-out-of-range",
+    "repo": "gsainfoteam/news-fe",
+    "pr": 39,
+    "head": "1fa24f97071a26a6b524baea1b76f857277b5ec6",
+    "base": "64b4d5091c65a6acae76288108a0f7b21054639f",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "disabled-page-link-still-activates",
+        "blocking": true,
+        "where": "src/features/article/views/components/admin-article-list/index.tsx",
+        "bug": "In the CMS article list PageNav, the previous/next links on the first/last page get `aria-disabled` but keep their href and onClick from `link(page - 1)` / `link(page + 1)`. aria-disabled only adds pointer-events-none, so the anchor stays focusable and pressing Enter (or ctrl/middle-click via href) calls onChange(0) or onChange(pageCount + 1); page 0 sends a request with offset -20 and the list switches to the error state (the clamp effect only handles page > pageCount). Fixed in 7599f240 by dropping href/onClick for out-of-range targets."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "48-search-load-more-unmounts",
+    "repo": "gsainfoteam/news-fe",
+    "pr": 48,
+    "head": "5fd19cce458a3185a2d7b944add09c1649f81551",
+    "base": "1184c071f8adfa25a25263d2d88384773f744c31",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "has-more-false-while-next-page-loads",
+        "blocking": true,
+        "where": "src/features/article/viewmodels/use-search.ts, src/features/article/views/components/search-page/index.tsx",
+        "bug": "useSearchResults computes `hasMore` with `shown.length === pages.length`, but clicking \"더 보기\" appends a page query that has no data yet, so it is excluded from `shown` and hasMore is false for the whole load. The LoadMore button therefore unmounts while the next page loads (its disabled/spinner state for isLoadingMore can never render) and keyboard focus is dropped to <body>, then the button reappears. Fixed in 59652334 by removing the `shown.length === pages.length` condition."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "45-photo-article-empty-meta-description",
+    "repo": "gsainfoteam/news-fe",
+    "pr": 45,
+    "head": "3101d625e757b7b50d8d4cfbad71fc0a7f8e34a9",
+    "base": "1184c071f8adfa25a25263d2d88384773f744c31",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "empty-summary-overrides-site-description",
+        "blocking": true,
+        "where": "src/features/article/viewmodels/article-detail.ts, src/layouts/layout.astro, src/pages/article/[id].astro",
+        "bug": "getArticleMeta sets `description: detail.subtitle ?? extractSummary(detail.html, 120)`. For an article with no subtitle whose body is only images (a photo article), extractSummary returns \"\", and Layout's site-description default only applies when description is undefined, so the page ships `<meta name=\"description\" content=\"\">` and an empty og:description. Fixed in da86f83f by mapping an empty summary to undefined (`|| undefined`) with a regression test."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "46-report-inbox-duplicate-history",
+    "repo": "gsainfoteam/news-fe",
+    "pr": 46,
+    "head": "653f068c74c74fdfa6e1b002b636122f6995e23c",
+    "base": "1184c071f8adfa25a25263d2d88384773f744c31",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "same-location-pushes-history",
+        "blocking": true,
+        "where": "src/features/report/viewmodels/use-report-inbox.ts",
+        "bug": "useReportInbox's `go` calls history.pushState for every non-replace navigation, including clicking the report that is already open or the current page number again. Each such click stacks a duplicate entry with the same URL, so pressing Back afterwards appears to do nothing (it lands on an identical inbox state). Fixed in 3b43dbbb by comparing the parsed current location (id and page) and using replaceState when it is the same."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "89-code-block-copy-button-covers-text",
+    "repo": "gsainfoteam/ids",
+    "pr": 89,
+    "head": "70bc0ba46f40011781edaa240d34cc3b55bd2bb5",
+    "base": "1f0822a1b197fc794cee8b4b5db1294dd7e8ee11",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "uncaptioned-first-line-under-copy-button",
+        "blocking": true,
+        "where": "packages/react/src/components/data/code-block/style.ts, packages/react/src/components/data/code-block/root.tsx",
+        "bug": "When a CodeBlock has neither `title` nor a non-plain `language`, no figcaption renders, but the copy button is still absolutely positioned at `end-1.5 top-1.5` over the code. Code lines only reserve `pe-4`, so a long first line runs underneath the button and its last characters are hidden (and unclickable for selection). The caption reserves the button width, but nothing does when there is no caption. Fixed in 75f1076b by adding a `captioned: false` variant that pads the first line by the button width, with a test."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "35-jev-answerable-gate",
+    "repo": "sh-ai-x/ai_saas",
+    "pr": 35,
+    "head": "f838dc856353119f122df2719cbfb1c9643b9506",
+    "base": "e9a514f89caa842d13877ac0c2028c2f97bf65b1",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "continuous-answerable-vs-binary-gate",
+        "blocking": true,
+        "where": "apps/web/lib/faq/jev.ts (parseJev), apps/web/lib/faq/service.ts (answerFaq gate)",
+        "bug": "parseJev passes Jev's continuous `answerable.noul` probability straight into `Selection.answerable`, but answerFaq still rejects any selection with `answerable < 0.9`, a threshold tuned for OpenAI's binary 0|1 output. Real Jev picks score about 0.85-0.95 (e.g. 0.88), so with FAQ_PROVIDER=jev almost every free-text question that is not an exact catalog match falls back to `clarify` even when Jev picked the right FAQ. Fixed later by lowering the gate to 0.85 (commit 9e71658 / PR #47)."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "54-hook-copies-env-stage",
+    "repo": "sh-ai-x/ai_saas",
+    "pr": 54,
+    "head": "c3f5c0fdec0bb1b46c4088698ebb78ee4acff045",
+    "base": "ea943388f02e9ee53ee445399bbd279f13bfed70",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "worktree-hook-wrong-env-filename",
+        "blocking": true,
+        "where": "hooks/post-worktree-add.sh",
+        "bug": "The new post-worktree-add hook copies `.env.local` and `.env.stage` into each new worktree, but the repo had already standardized on `.env.staging` (scripts/docker-neon.sh reads `$repo_root/.env.staging`; .gitignore only carves out `.env.staging.example`). In a fresh worktree the staging env file is never copied, so `pnpm docker:neon` stops with 'Create it first with: cp .env.staging.example .env.staging' while a useless `.env.stage` is copied instead. Fixed later in #61 (commit ed7ea3a) by renaming the copy target to `.env.staging`. The bot mentioned this only as a minor architecture note."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "21-billing-mode-guard",
+    "repo": "sh-ai-x/ai_saas",
+    "pr": 21,
+    "head": "7fed976e785af1c20058beb4c46a7c44006fa047",
+    "base": "73698bf5ea167aa469dd806638766a1b0ed4d3e3",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "update-plan-mode-unchecked",
+        "blocking": true,
+        "where": "apps/web/lib/pricing/repository.ts (updatePricingPlan)",
+        "bug": "To let a one-time plan's price be saved while subscriptions are the active policy, the PR deletes the only billingMode check in updatePricingPlan instead of narrowing it. The admin PATCH /api/admin/pricing/[id] route now accepts any `billingMode`, so a plan can be flipped to a mode that is neither its current mode nor the active catalog mode (e.g. turning plan-pro into one_time while subscription is active), which createPricingPlan still forbids. Fixed in 8daa194d / e79e7cbe by adding a transition guard (reject when the new mode differs from both the current mode and the policy mode)."
+      },
+      {
+        "id": "node-test-under-jest",
+        "blocking": true,
+        "where": "apps/web/tests/one-time-pricing-persistence.test.ts",
+        "bug": "The new regression test imports `describe/it/before/after` from `node:test`, but the web package runs `jest --config jest.config.mjs` (jest 30, testMatch tests/**/*.test.ts). Registrations go to node:test, so jest sees a suite with no tests and fails it (and `before`/`after` are not jest hooks). Fixed in 8daa194d and 3e5a403f by switching to jest globals beforeAll/afterAll."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "45-repair-requires-env-file",
+    "repo": "sh-ai-x/ai_saas",
+    "pr": 45,
+    "head": "ae3ec502c7f7d92ae21c2b44124fab7aa940d5b9",
+    "base": "72d2916ce9fffdcee5dead4971b269e6a1465845",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "loaddotenv-throws-in-ci",
+        "blocking": true,
+        "where": "scripts/migration-history-repair.mjs (main), .github/workflows/migration-repair-prod.yml",
+        "bug": "The production repair workflow passes DATABASE_URL_UNPOOLED and the confirmation vars through the step `env:` block and no longer writes `.env.production` to disk, but main() still does `if (!loadDotenv(envFile)) throw new Error('environment file not found: ...')`. Every run of migration-repair-prod.yml therefore dies on its first line before any check or repair runs. Fixed in 63b67ce by making loadDotenv best-effort and failing only when DATABASE_URL_UNPOOLED is absent from process.env."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "58-comment-fallback-shadowed",
+    "repo": "sh-ai-x/boilerplate-web",
+    "pr": 58,
+    "head": "851048a197272cedf66be389985435d74e70c104",
+    "base": "62aef8316abc392373cbc7c3f6b06d42d0710d10",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "parse-failed-branch-first",
+        "blocking": true,
+        "where": ".github/workflows/review.yml (Extract review verdict / Extract security verdict steps)",
+        "bug": "The PR fetches `comment_verdict` from the bot's PR comment when `file_verdict` is empty or PARSE_FAILED, but the following if/elif chain tests `[ \"$file_verdict\" = \"PARSE_FAILED\" ]` first and sets verdict=PARSE_FAILED, so the comment-fallback arm is unreachable in exactly the MiniMax stream-drop case it was written for; the gate still hard-fails. Same in both the review and security blocks. Fixed in #60 by consulting comment_verdict before falling through to the PARSE_FAILED sentinel."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "18-checklist-never-prints",
+    "repo": "sh-ai-x/boilerplate-web",
+    "pr": 18,
+    "head": "fb283838a534be6be8ea45d069b8c684e1eccc57",
+    "base": "74ac31591bcff58f2ccaa2331983e285b57adb36",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "post-install-missing-type",
+        "blocking": true,
+        "where": "cli/index.js (main pipeline), cli/lib/post-install.js",
+        "bug": "printPostInstallChecklist(type) was made type-aware (it looks up CHECKLISTS[type] and returns silently when there is no entry), but cli/index.js calls `printPostInstallChecklist()` with no argument. CHECKLISTS[undefined] is undefined, so after a successful scaffold of saas, shop or portfolio the post-install checklist is never printed. Fixed in fe38e80 by passing `type`."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "28-setmultisel-undeclared",
+    "repo": "sh-ai-x/archidraw",
+    "pr": 28,
+    "head": "3f88729ff17514ee22d70837879442b69396fa87",
+    "base": "869cc39a57bed8a881a833289ccdb905119ac272",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "multisel-state-missing",
+        "blocking": true,
+        "where": "packages/gui/src/Canvas.tsx",
+        "bug": "The marquee-selection code calls `setMultiSel([])` when the select tool presses on empty canvas and `setMultiSel(hits)` on pointer-up, but the component never declares a `multiSel` useState. Every select-tool click on empty space and every finished marquee throws `ReferenceError: setMultiSel is not defined` at runtime (Vite dev does not type-check, so it builds). The bot flagged it but the PR merged; fixed later in #33 (commit 72eb3b6) by adding `const [multiSel,setMultiSel]=useState<string[]>([])`."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "26-freedraw-stale-start",
+    "repo": "sh-ai-x/archidraw",
+    "pr": 26,
+    "head": "215cc3297f1c2f269c166be3c9ed4aa8db678511",
+    "base": "3d04070b6b10391dfe4d0422f7b4c645303b8fb1",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "points-read-from-pointerdown-snapshot",
+        "blocking": true,
+        "where": "packages/gui/src/Canvas.tsx (onPointerMove freedraw branch)",
+        "bug": "The new freedraw branch builds the next point list from `start.points`, where `start` is `drag.current.start`, the element snapshot taken at pointerdown (points [[0,0]]); drag.current is never refreshed during the stroke. Each pointermove therefore writes `[[0,0],[px,py]]`, so the pencil draws a straight segment from the press point to the cursor instead of accumulating a freehand path. The feature was removed as 'broken freedraw' in the next GUI PR (#28)."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "41-cancel-guard-dropped",
+    "repo": "sh-ai-x/WikiGrounded",
+    "pr": 41,
+    "head": "fb39f569cb09b14c9d4551dfb5ae34c99a2fae63",
+    "base": "d858a84ccdec95e2b7b28f1b61aaae6a49613968",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "cancel-terminal-run",
+        "blocking": true,
+        "where": "apps/agentops-workbench/src/agentops_workbench/api/server.py (cancel_run)",
+        "bug": "While moving the run endpoints, the cherry-picked scope reduction re-adds POST /v1/runs/{id}/cancel without its state check: the old handler returned 409 'cannot cancel from state ...' unless the run was queued/running/waiting_for_approval. Now cancelling an already succeeded or failed run silently rewrites its state to cancelled and returns 200, and the existing cancel-guard tests in tests/test_api_runs.py fail. Fixed in 596368f (same PR, after a separate /code-review pass) by restoring a terminal-state 409."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "36-gh-search-query-too-long",
+    "repo": "sh-ai-x/WikiGrounded",
+    "pr": 36,
+    "head": "e67f84d0b721d725a114e5796ef1af82346bef65",
+    "base": "c52121820cd585705f288927c21fd530fcd89623",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "issue-body-in-search-q",
+        "blocking": true,
+        "where": "apps/agentops-workbench/src/agentops_workbench/oss_helper.py (run_oss_helper), adapters/github_issue.py (search_evidence)",
+        "bug": "When an issue number is given, run_oss_helper appends the whole issue body to the question and sends that same text as GitHub's /search/issues `q` (prefixed with repo:owner/name). GitHub rejects q longer than 256 characters with 422, search_evidence raises, and the /oss-helper page shows only 'Internal error' with no docs evidence or answer; a long free-text question alone hits the same limit. Fixed in 2ba6e77b (follow-up branch, PR #38) by sending only `repo:owner/name is:issue` plus a capped first line of the question to GitHub and truncating q to 256 chars."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "673-gh-api-repo-flag",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 673,
+    "head": "68a7a3ba162b55e6a8a591efd242081c042e12ac",
+    "base": "d9ae28a391d8ba09a8f3d60f062b24ff4619668f",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "gh-api-rejects-repo-flag",
+        "blocking": true,
+        "where": ".github/workflows/fork-pr-review.yml",
+        "bug": "The PR appends `--repo \"${{ github.repository }}\"` to all four `gh api` calls (commit-status POSTs and the jobs listing) to fix missing git context under pull_request_target. `gh api` has no `--repo` flag, so every one of those steps now dies with `unknown flag: --repo` and the fork-PR gate fails on every fork PR. Fixed in #674 / #681 by switching to absolute `https://api.github.com/repos/...` URLs plus job-level GH_REPO/GH_HOST."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "582-picker-move-tuple-arity",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 582,
+    "head": "f95835ea70475a44fd33e145b1ee30a2e514c6c2",
+    "base": "7e0e9d7cd1ed90759e4061feb34d02a061d363c1",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "arrow-key-unpack-valueerror",
+        "blocking": true,
+        "where": "tools/session_monitor_picker.py",
+        "bug": "The new `_move()` helper returns a 3-tuple `(rows, cursor, mode)`, and the arrow/j/k branches of `_step_normal` and `_step_editing` return `_move(...) + (buffer, mode, None, False)`, i.e. 7 values. `pick_session()` unpacks the step result into 6 names, so pressing any arrow key (or j/k) in the picker raises `ValueError: too many values to unpack (expected 6)` and crashes the session monitor. Fixed in #585 by dropping `mode` from `_move()` so the branches return 6 values."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "605-review-local-pr-field-parsing",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 605,
+    "head": "7f5321b675dd67fa9f0ec1aa0f6db08eeb2b4885",
+    "base": "038a00579e391abbda47b4e492c8ac308ab0cca0",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "multiline-body-shifts-fields",
+        "blocking": true,
+        "where": "bin/review-local.sh",
+        "bug": "`read_pr_fields` prints state, title, reviewDecision, body and the newline-joined file list as plain lines, and bash reads only the first 5 lines into PR_FIELDS. Any multi-line PR body (virtually every PR) puts body line 2 into PR_FILES and drops the real file list (and a multi-file PR keeps only its first file), so the touch-probe and L3 evidence check run on the wrong data, e.g. reporting a PR that touches bin/ as docs-only/advisory. Fixed in #609 by NUL-delimiting the fields."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "755-matrix-cache-stale-after-write",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 755,
+    "head": "882c32447da5642ccc530fb70f0508ef88c0244d",
+    "base": "068bb6d7e6c2cba306017f5428b01f01f63d2a7f",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "mtime-keyed-cache-not-invalidated",
+        "blocking": true,
+        "where": "lib/active_hooks_codec.py",
+        "bug": "The new `_MATRIX_CACHE` in `load_matrix` is keyed only on `(resolved path, st_mtime)` and relies on the write bumping mtime. `set_stage`/`disable_override` write via `atomic_write_json` but never evict the entry, so when the rewrite lands with the same st_mtime (same timestamp tick or coarse-mtime filesystems) a following `is_hook_active` in the same process returns the stale matrix, e.g. a hook still active right after `disable_override`. Fixed in #895 by explicitly invalidating cache entries for the project root after each write."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "634-retry-count-int-crash",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 634,
+    "head": "c55d5db5ac7d989639968f88a97f62461cf94b27",
+    "base": "1884cf9544e2416e3bee6aaea08a1f346fa18428",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "recovery-int-cast-crash",
+        "blocking": true,
+        "where": "lib/harness_effectiveness.py",
+        "bug": "`_recovery()` does `int(terminal[\"evidence_ref\"].get(\"retry_count\", 99))` on a `verify.passed` event's evidence_ref, which is free-form JSON accepted by the trace_log CLI and only checked to be a dict. A non-numeric or null `retry_count` (e.g. \"abc\" or None) raises ValueError/TypeError and crashes the whole `build_report()`, instead of just marking that recovery chain as unbounded. Fixed in #659 with a tolerant `_as_int()` helper."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "672-team-id-cache-nameerror",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 672,
+    "head": "11c7f4dd8ac78854703faa8296e3272a0a4b2e36",
+    "base": "578672e2b0d71ebb89af035e4444a68872b00f3d",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "global-cache-never-initialized",
+        "blocking": true,
+        "where": "tools/linear_pr_sync.py",
+        "bug": "`_team_id()` declares `global _team_id_cache` and reads it before any assignment, but the name is never defined at module level. The first call raises NameError, which the caller treats as 'no team id', so every Linear sync round logs state-not-found and silently does nothing. Fixed in the same PR (commit c28ad361) by adding a module-level `_team_id_cache: str | None = None`."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "798-janitor-autoprune-active-worktrees",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 798,
+    "head": "29ac60af1250153f47d85d443b646c16e8b0c48c",
+    "base": "e19ccd9e212f48d4cf62ce10e80646812e502273",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "force-removes-fresh-dirty-worktrees",
+        "blocking": true,
+        "where": "hooks/worktree-janitor-session-start.sh",
+        "bug": "With DEV_KIT_JANITOR_AUTO_PRUNE=1 the SessionStart hook force-removes (`safe-remove ... -- --force`) every worktree matching orphan predicate 1, `git merge-base --is-ancestor $branch origin/main`. That check is reflexive, so a freshly created worktree whose branch still points at origin/main (no commits yet, possibly uncommitted edits), including the session's own worktree, counts as merged and is deleted with its uncommitted files. There is no dirty check, age guard or self-exclusion. Fixed in the same PR (commit 6adfbe42): auto-prune limited to the stale fix/classify-request-* predicate, plus safety guards."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "929-issue-sync-title-refs-skipped",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 929,
+    "head": "08d6275d555110ecacdfe2c0f8e889213f54c34a",
+    "base": "16dc045c992920934acc8ba30801a7924c55d501",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "precheck-ignores-pr-title",
+        "blocking": true,
+        "where": ".github/workflows/issue-sync.yml",
+        "bug": "The new 'Pre-check refs' step greps only PR_BODY for `#N` references and sets has_refs=false when none are found, which skips checkout and the issue_sync parse/verify steps. The real parser (`tools/issue_sync.py pre-push --pr-title ... --pr-body ...`) also scans the title, so a PR whose only reference is in the title (e.g. 'Closes #12 - ...' with an empty body) silently skips the issue-sync gate. Fixed in the same PR (6976c436, force-pushed) by grepping title + body."
+      }
+    ],
+    "set": "fresh"
+  },
+  {
+    "id": "770-active-hooks-path-normalizer",
+    "repo": "sh-ai-x/dev-harness-kit",
+    "pr": 770,
+    "head": "5fae73e4ad980aae14405fbeac151d0042d15cc1",
+    "base": "b72777d44145da1c0c0669b2564dc411e405f010",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "env-prefix-breaks-normalize-path",
+        "blocking": true,
+        "where": "hooks/hooks.json, tools/regenerate_active_hooks.py",
+        "bug": "The PR prefixes every hook command in hooks/hooks.json with `DEV_KIT_AGENT=claude-code bash ...`, but `_normalize_path` in tools/regenerate_active_hooks.py strips the leading `bash ` only with an anchored `^bash\\s+` regex. For prefixed commands that strip no longer fires, so the regenerated `.dev-kit/.active-hooks.json` records `path` as `DEV_KIT_AGENT=claude-code bash hooks/tdd-guard.sh` instead of `hooks/tdd-guard.sh`. Fixed in the same PR (commit fed4674f) by stripping leading env assignments, with a regression test."
+      }
+    ],
+    "set": "fresh"
   }
 ]
