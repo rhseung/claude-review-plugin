@@ -98,6 +98,21 @@ claude plugin install review@rhseung
 `/review:pr OWNER/REPO NUMBER HEAD_SHA`를 실행하면 PR 전체를 같은 기준으로 로컬에서
 검토합니다.
 
+## 평가
+
+`eval/cases.json`에는 지난 PR과 그 안에 있던 버그가 들어 있습니다. 아래 명령은 그 PR들을
+다시 리뷰해서 버그를 몇 개 잡았는지, 승인을 막는 종류로 달았는지를 표로 보여 줍니다.
+GitHub에는 아무것도 쓰지 않습니다.
+
+```sh
+python3 eval/run.py --local-clone ~/Developer/rhseung/folio              # 작업 트리의 프롬프트
+python3 eval/run.py --local-clone ~/Developer/rhseung/folio --ref origin/main
+```
+
+결과는 `eval/results/`에 남습니다. 리뷰 한 번이 구독 사용량을 쓰므로 `--cases`로 사례를
+골라 돌릴 수 있습니다. 사용량 한도로 중간에 멈췄으면 같은 `--name`에 `--resume`을 붙여
+리뷰를 내지 못한 실행만 다시 돌립니다.
+
 ## 구성
 
 - `review/commands/pr.md` - PR을 열 때와 push 할 때마다 실행되는 리뷰 루프

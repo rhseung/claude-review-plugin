@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# 평가용 gh. 읽기는 진짜 gh 로 넘기고, GitHub 에 쓰는 호출은 writes.jsonl 에 남기기만 한다.
+# 지난 PR 을 다시 리뷰하므로, 그 PR 의 지금 thread 와 리뷰는 감추고 diff 는 평가 커밋에서 만든다.
+set -u
+out="$EVAL_OUT"
+orig=("$@")
+printf '%s\n' "$(jq -cn --args '$ARGS.positional' -- "$@")" >> "$out/gh.log"
+
+real() { GH_TOKEN="$EVAL_GH_TOKEN" "$EVAL_REAL_GH" "$@"; }
+
+# --jq 가 있으면 가짜 응답에도 진짜 gh 처럼 적용한다
+jq_arg=
+for ((i = 1; i <= $#; i++)); do
+  if [ "${!i}" = --jq ] || [ "${!i}" = -q ]; then j=$((i + 1)); jq_arg="${!j}"; fi
+done
+reply() {
+  if [ -n "$jq_arg" ]; then jq -r "$jq_arg" <<< "$1"; else printf '%s\n' "$1"; fi
+}
+
+record() {
+  # $1 method, $2 endpoint, $3 body(json 이거나 빈 값)
+  jq -cn --arg m "$1" --arg e "$2" --arg b "$3" \
+    '{method: $m, endpoint: $e, body: (try ($b | fromjson) catch $b)}' >> "$out/writes.jsonl"
+}
+
+if [ "${1:-}" = pr ]; then
+  case "${2:-}" in
+    diff)
+      if [[ " $* " == *" --name-only "* ]]; then
+        git -C "$EVAL_GIT_DIR" diff --name-only "$EVAL_BASE...$EVAL_HEAD"
+      else
+        git -C "$EVAL_GIT_DIR" diff "$EVAL_BASE...$EVAL_HEAD"
+      fi
+      exit 0 ;;
+    view|checks|list|status)
+      # 지금 PR 의 head 는 평가 커밋보다 뒤일 수 있다. 봇이 그 차이를 보면 리뷰를 내지 않는다
+      if [[ " $* " == *--json* ]]; then
+        plain=() skip=
+        for a in "$@"; do
+          if [ -n "$skip" ]; then skip=; continue; fi
+          case "$a" in --jq|-q|-t|--template) skip=1 ;; *) plain+=("$a") ;; esac
+        done
+        resp=$(real "${plain[@]}") || exit $?
+        reply "$(jq --arg h "$EVAL_HEAD" 'if has("headRefOid") then .headRefOid = $h else . end' <<< "$resp")"
+        exit 0
+      fi
+      real "$@"; exit $? ;;
+    *)
+      record "gh pr ${2:-}" "" "$(jq -cn --args '$ARGS.positional' -- "$@")"
+      echo "https://github.com/example/example/pull/1#issuecomment-1"
+      exit 0 ;;
+  esac
+fi
+
+if [ "${1:-}" != api ]; then
+  record "gh ${1:-}" "" "$(jq -cn --args '$ARGS.positional' -- "$@")"
+  exit 0
+fi
+
+shift
+method= endpoint= input= fields=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -X|--method) method="$2"; shift 2 ;;
+    --input) input="$2"; shift 2 ;;
+    -f|-F|--field|--raw-field) fields+=("$2"); shift 2 ;;
+    --jq|-q|-H|--header|-t|--template|--hostname|--cache) shift 2 ;;
+    --paginate|--slurp|-i|--include|--silent|--verbose) shift ;;
+    *) [ -z "$endpoint" ] && endpoint="$1"; shift ;;
+  esac
+done
+if [ -z "$method" ]; then
+  if [ -n "$input" ] || [ ${#fields[@]} -gt 0 ]; then method=POST; else method=GET; fi
+fi
+body=
+if [ -n "$input" ] && [ -f "$input" ]; then body=$(cat "$input"); fi
+if [ ${#fields[@]} -gt 0 ] && [ -z "$body" ]; then
+  body=$(printf '%s\n' "${fields[@]}" | jq -Rn '[inputs | capture("^(?<k>[^=]+)=(?<v>.*)$")] | map({(.k): .v}) | add')
+fi
+
+if [ "$endpoint" = graphql ]; then
+  query=$(jq -r '.query // empty' <<< "$body" 2>/dev/null)
+  if grep -qiE '^\s*mutation|\bmutation\b' <<< "$query"; then
+    record GRAPHQL graphql "$body"
+    reply '{"data":{}}'
+    exit 0
+  fi
+  if grep -qE 'reviewThreads|reviews' <<< "$query"; then
+    reply '{"data":{"repository":{"pullRequest":{"headRefOid":"'"$EVAL_HEAD"'","reviewThreads":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}},"reviews":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}}'
+    exit 0
+  fi
+  real "${orig[@]}"; exit $?
+fi
+
+path=${endpoint%%\?*}
+if [ "$method" = GET ]; then
+  case "$path" in
+    */pulls/*/reviews|*/pulls/*/comments|*/issues/*/comments|*/pulls/*/reviews/*/comments)
+      reply '[]'; exit 0 ;;
+    */pulls/*/commits)
+      # 평가 커밋까지의 PR 커밋만 보인다
+      reply "$(git -C "$EVAL_GIT_DIR" log --reverse --format='%H%x09%s' "$EVAL_BASE..$EVAL_HEAD" |
+        jq -R -s '[split("\n")[] | select(length > 0) | split("\t") | {sha: .[0], commit: {message: .[1]}}]')"
+      exit 0 ;;
+  esac
+  if [[ "$path" =~ ^/?repos/[^/]+/[^/]+/pulls/[0-9]+$ ]]; then
+    resp=$(real api "$endpoint") || exit $?
+    reply "$(jq --arg h "$EVAL_HEAD" --arg b "$EVAL_BASE" '.head.sha = $h | .base.sha = $b | .merge_commit_sha = null' <<< "$resp")"
+    exit 0
+  fi
+  real "${orig[@]}"; exit $?
+fi
+
+record "$method" "$endpoint" "$body"
+reply '{"id":1,"node_id":"X","html_url":"https://github.com/example/example/pull/1","state":"COMMENTED"}'
