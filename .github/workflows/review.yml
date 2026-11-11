@@ -92,6 +92,26 @@ jobs:
           path: .claude-review/plugin
           persist-credentials: false
 
+      # 바뀐 이름을 부르는 곳을 스크립트로 미리 모은다. 리뷰어가 찾아볼지 말지에 맡기면 diff 밖의
+      # 호출부를 놓친다. 실패하면 목록 없이 리뷰한다
+      - name: references
+        run: |
+          if [ "$MODE" = incremental ]; then
+            diff=$(gh api "repos/$GH_REPO/compare/$BASE...$HEAD" -H "Accept: application/vnd.github.diff") || diff=
+          else
+            diff=$(gh pr diff "$PR") || diff=
+          fi
+          if [ -z "$diff" ] || ! python3 .claude-review/plugin/review/scripts/refs.py . <<< "$diff" > .claude-review/refs.md; then
+            rm -f .claude-review/refs.md
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          MODE: ${{ steps.plan.outputs.mode }}
+          BASE: ${{ steps.plan.outputs.base }}
+
       - id: claude
         uses: anthropics/claude-code-action@v1
         # 잡 timeout 은 남은 단계까지 취소한다. 알림 단계가 돌 시간을 남긴다

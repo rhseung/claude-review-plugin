@@ -22,7 +22,9 @@ approve this PR. Do it without asking.
 Every request body, GraphQL queries included, goes through a file: write the JSON with the
 Write tool under .claude-review/ in the repo root and pass it with `--input`. Keep every
 shell command on one line. Do not use mkdir, cat, printf or heredocs - only the Write tool
-creates files. Ignore `.claude-review/` when you read or search the code.
+creates files. Ignore `.claude-review/` when you read or search the code, except
+`.claude-review/refs.md`: when it exists, a script listed there the places outside the diff
+that name a symbol the PR changed.
 
 ## Severity
 
@@ -99,9 +101,9 @@ are covered, and a separate verifier keeps the noise out.
 1. Start the finders in parallel, all in ONE message with one Agent call each:
    `review:logic`, `review:callers`, `review:failures` and, in `full` mode,
    `review:precedent`. Give each the same prompt: REPO, NUMBER, HEAD, MODE, BASE, how to
-   get the diff for this MODE (the bullets above), and the titles and paths of your
-   blocking threads still open so it skips them. Do not review the diff yourself while
-   they run.
+   get the diff for this MODE (the bullets above), the path `.claude-review/refs.md` as the
+   references file when it exists, and the titles and paths of your blocking threads still
+   open so it skips them. Do not review the diff yourself while they run.
 2. Collect the JSON arrays they return. A finder that fails or returns something that is
    not a JSON array counts as `[]`; the others still go on.
 3. When there is at least one candidate, start `review:verify` with REPO, NUMBER, HEAD,

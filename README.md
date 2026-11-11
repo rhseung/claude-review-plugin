@@ -123,5 +123,6 @@ python3 eval/run.py --local-clone ~/Developer/rhseung/folio --ref origin/main
 - `review/commands/mention.md` - `@claude` 멘션 처리
 - `review/agents/` - 리뷰 루프가 동시에 띄우는 리뷰어(로직, 호출부, 실패 경로, 기존 코드 비교)와 그 결과를
   다시 확인하는 검증 agent
+- `review/scripts/refs.py` - PR이 바꾼 함수, 타입, 필드를 diff 밖에서 쓰는 곳을 모아 리뷰어에게 넘기는 스크립트
 - `.github/workflows/review.yml` - 위 세 가지를 잡으로 묶은 reusable workflow. 첫 리뷰에는
   opus를 사용하고, 이후 리뷰와 답글, 멘션에는 sonnet을 사용합니다.

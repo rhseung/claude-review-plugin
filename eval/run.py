@@ -86,6 +86,16 @@ def _checkout(case, k, args, work):
 def review(case, k, args, plugin, work, out):
     repo, tree = checkout(case, k, args, work)
     out.mkdir(parents=True, exist_ok=True)
+    # workflow 의 references 단계와 같은 목록을 만든다. 예전 ref 의 플러그인에는 스크립트가 없다
+    refs = plugin / "scripts" / "refs.py"
+    if refs.exists():
+        diff = subprocess.run(["git", "-C", str(tree), "diff", f"{case['base']}...{case['head']}"],
+                              capture_output=True, check=True).stdout
+        made = subprocess.run(["python3", "-I", str(refs), str(tree)], input=diff, capture_output=True)
+        (tree / ".claude-review").mkdir(exist_ok=True)
+        if made.returncode == 0:
+            (tree / ".claude-review" / "refs.md").write_bytes(made.stdout)
+            shutil.copy(tree / ".claude-review" / "refs.md", out / "refs.md")
     for name in ("writes.jsonl", "gh.log"):
         (out / name).unlink(missing_ok=True)
     shim = work / "bin"

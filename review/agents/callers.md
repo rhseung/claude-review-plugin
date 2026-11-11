@@ -16,6 +16,12 @@ head is checked out in the working directory. You are read-only: use Read, Grep,
 
 ## How to look
 
+0. When the caller names a references file, read it first. A script made it from the
+   diff: every place outside the changed lines that names a function, type or field the
+   PR changed. Go through every entry, open the listed line and decide whether that use
+   still holds. An entry you skip is a caller nobody checks. The list only matches names,
+   so it misses config keys, command strings, CI filters and renamed uses: keep going with
+   the steps below.
 1. List every changed contract. A contract changed when a function, method, type, field,
    constant, enum case, schema, config key, CLI flag, route, event, file format or
    generated file now behaves differently for the same use. Include changes that keep the
