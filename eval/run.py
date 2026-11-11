@@ -8,6 +8,7 @@
 """
 import argparse
 import concurrent.futures as cf
+import fcntl
 import json
 import os
 import re
@@ -45,7 +46,9 @@ def plugin_dir(args, work):
 
 
 def checkout(case, k, args, work):
-    with CHECKOUT:
+    # 두 비교 실행을 동시에 띄우면 프로세스끼리도 clone 이 겹친다. 스레드 lock 만으로는 막지 못한다
+    with CHECKOUT, open(work / "checkout.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
         return _checkout(case, k, args, work)
 
 
@@ -70,8 +73,10 @@ def _checkout(case, k, args, work):
         if sh("git", "cat-file", "-t", sha, cwd=repo, check=False).returncode != 0:
             # force push 로 어느 ref 에도 남지 않은 head 는 SHA 로 직접 받는다
             sh("git", *auth, "fetch", url, sha, cwd=repo)
-    tree = work / "trees" / f"{case['id']}-r{k}"
+    # 실행 이름별로 나눈다. 같은 사례를 두 실행이 한 트리에서 돌리면 서로의 요청 본문을 지운다
+    tree = work / "trees" / args.run_name / f"{case['id']}-r{k}"
     if not tree.exists():
+        tree.parent.mkdir(parents=True, exist_ok=True)
         sh("git", "worktree", "add", "--detach", "--force", str(tree), case["head"], cwd=repo)
     # 지난 실행이 남긴 요청 본문이 다음 실행에 보이지 않게 한다
     shutil.rmtree(tree / ".claude-review", ignore_errors=True)
@@ -109,21 +114,75 @@ def review(case, k, args, plugin, work, out):
               "--restricted", "--strict-mcp-config", "--no-session-persistence",
               "--tools", "Bash,Read,Grep,Glob,Write,Edit,Agent",
               "--allowedTools", ALLOWED,
-              "--output-format", "json",
+              "--output-format", "stream-json", "--verbose",
               cwd=tree, env=env, check=False, timeout=args.timeout)
-    (out / "claude.json").write_text(proc.stdout or "")
+    (out / "claude.jsonl").write_text(proc.stdout or "")
     (out / "claude.stderr").write_text(proc.stderr or "")
-    try:
-        meta = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        meta = {}
+    return read_stream(out, round(time.time() - started), proc.returncode)
+
+
+def read_stream(out, seconds=None, returncode=0):
+    events = []
+    for line in (out / "claude.jsonl").read_text().splitlines():
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            pass
+    # subagent 가 끝날 때마다 부모가 새 턴을 열어 result 가 여러 번 온다. 비용은 누적값이라 마지막 것을 쓴다
+    results = [e for e in events if e.get("type") == "result"]
+    last = results[-1] if results else {}
+    (out / "stages.json").write_text(json.dumps(stages(events), ensure_ascii=False, indent=2))
+    stderr = (out / "claude.stderr").read_text() if (out / "claude.stderr").exists() else ""
     return {
-        "seconds": round(time.time() - started),
-        "cost_usd": meta.get("total_cost_usd"),
-        "turns": meta.get("num_turns"),
-        "is_error": meta.get("is_error", proc.returncode != 0),
-        "result": (meta.get("result") or proc.stderr or "")[:200],
+        "seconds": seconds if seconds is not None else round(sum(e.get("duration_ms") or 0 for e in results) / 1000),
+        "cost_usd": last.get("total_cost_usd"),
+        "turns": sum(e.get("num_turns") or 0 for e in results) or None,
+        "is_error": any(e.get("is_error") for e in results) if results else returncode != 0,
+        "result": (last.get("result") or stderr or "")[:200],
     }
+
+
+def stages(events):
+    # 놓친 버그가 리뷰어가 못 본 것인지 검증이 버린 것인지는 단계별 답을 봐야 가린다
+    # 백그라운드로 돈 subagent 는 tool_result 에 접수 안내만 오고, 답은 그 호출 id 를 부모로 단 메시지에 있다.
+    # 앞에서 돈 subagent 는 tool_result 가 곧 답이다
+    calls, replies, handbacks = {}, {}, {}
+    for e in events:
+        parent = e.get("parent_tool_use_id")
+        message = e.get("message")
+        if not isinstance(message, dict):
+            continue
+        for block in message.get("content") or []:
+            if not isinstance(block, dict):
+                continue
+            if e.get("type") == "assistant":
+                if not parent and block.get("type") == "tool_use" and block.get("name") in ("Agent", "Task"):
+                    calls[block["id"]] = block["input"].get("subagent_type", "?")
+                elif parent and block.get("type") == "text" and block.get("text", "").strip():
+                    replies[parent] = block["text"]
+            elif e.get("type") == "user" and not parent and block.get("type") == "tool_result":
+                content = block.get("content")
+                if isinstance(content, list):
+                    content = "\n".join(c.get("text", "") for c in content if isinstance(c, dict))
+                if content and not content.startswith("Async agent launched"):
+                    handbacks[block.get("tool_use_id")] = content
+    return [{"agent": calls[i], "reply": replies.get(i) or handbacks.get(i)} for i in calls]
+
+
+def candidates(reply):
+    if not reply:
+        return None
+    # 앞에서 돈 subagent 의 답은 안내 문단 뒤에 한 칸씩 들여 써서 오고, 대개 ```json 으로 감싼다
+    text = "\n".join(l[2:] if l.startswith("  ") else l for l in reply.splitlines())
+    fence = re.findall(r"```(?:json)?\s*(\[.*?\])\s*```", text, re.S)
+    for chunk in fence + [text[m.start():] for m in re.finditer(r"\[\s*(\{|\])", text)]:
+        try:
+            value, _ = json.JSONDecoder().raw_decode(chunk)
+            if isinstance(value, list):
+                return value
+        except json.JSONDecodeError:
+            continue
+    return None
 
 
 def submitted(out, case):
@@ -213,8 +272,11 @@ def score(case, result, verdict):
 def run_case(case, k, args, plugin, work, outdir):
     out = outdir / case["id"] / f"r{k}"
     reuse = args.rejudge or (args.resume and submitted(out, case) is not None)
-    if reuse and (out / "writes.jsonl").exists():
+    if reuse and (out / "meta.json").exists():
         meta = json.loads((out / "meta.json").read_text())
+    elif reuse and (out / "claude.jsonl").exists():
+        meta = read_stream(out)
+        (out / "meta.json").write_text(json.dumps(meta, indent=2))
     else:
         meta = review(case, k, args, plugin, work, out)
         (out / "meta.json").write_text(json.dumps(meta, indent=2))
@@ -286,6 +348,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--ref", help="git ref of this repo whose review/ to use (default: working tree)")
     p.add_argument("--cases", help="comma-separated case ids (default: all)")
+    p.add_argument("--set", choices=["tuned", "fresh"], help="only the cases of this set")
     p.add_argument("--model", default="claude-opus-5-5")
     p.add_argument("--judge-model", default="claude-sonnet-5-5")
     p.add_argument("--jobs", type=int, default=3)
@@ -308,8 +371,11 @@ def main():
     if args.cases:
         wanted = set(args.cases.split(","))
         cases = [c for c in cases if c["id"] in wanted]
+    if args.set:
+        cases = [c for c in cases if c.get("set", "tuned") == args.set]
     plugin, label = plugin_dir(args, work)
     name = args.name or f"{re.sub(r'[^A-Za-z0-9._-]', '_', label)}-{time.strftime('%m%d-%H%M')}"
+    args.run_name = name
     outdir = EVAL / "results" / name
     outdir.mkdir(parents=True, exist_ok=True)
     print(f"{label}: {len(cases)} cases -> {outdir}", file=sys.stderr)
