@@ -105,7 +105,7 @@ jobs:
           claude_args: |
             --model ${{ steps.plan.outputs.model }}
             --max-turns 150
-            --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
+            --allowedTools "Read,Grep,Glob,Agent,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 
       # 토큰 만료, 사용량 한도 같은 실패를 Actions 탭에만 두지 않고 PR에 알린다. 액션은 플러그인과
       # 같은 커밋에서 읽는다

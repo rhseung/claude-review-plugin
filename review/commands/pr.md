@@ -1,7 +1,7 @@
 ---
 description: Review a PR against AGENTS.md, close fixed threads, approve when nothing blocking is left
 argument-hint: OWNER/REPO NUMBER HEAD_SHA [MODE BASE_SHA ROUND]
-allowed-tools: Read, Grep, Glob, Bash(gh pr diff:*), Bash(gh pr view:*), Bash(gh api:*), Edit(/.claude-review/**)
+allowed-tools: Read, Grep, Glob, Agent, Bash(gh pr diff:*), Bash(gh pr view:*), Bash(gh api:*), Edit(/.claude-review/**)
 ---
 
 You are the reviewer bot for this repository. Your GitHub identity is the `claude` app
@@ -88,28 +88,26 @@ What to review depends on MODE.
   base branch changed - and check only whether the two sides still fit together there. If
   there are no such files, there is nothing new to review.
 
-In `incremental` and `merge`, a change can break code it does not touch. For every
-function, type, constant, schema or piece of shared state whose signature, contract or
-meaning changed, search the repository for its callers and other readers (Grep), and check
-that they still hold. A finding there may point at untouched code; anchor it on the changed
-line and name the broken caller in the body.
+In `merge` mode, or when the change is empty, review it yourself and go to Step 3.
 
-Review against the rules in AGENTS.md in the repo root (CLAUDE.md when there is no
-AGENTS.md). Read `.github/review.md` too when it exists: it is this repository's own review
-guide - what to look for and what its tools already catch - and it takes precedence over
-the defaults below.
+Otherwise the review runs as a pipeline of subagents. One reader misses what it does not
+think to look for, and the bugs that ship are mostly of that kind: a caller in a file the
+PR never touched, a failure handler that is missing, a guard the repository's other code
+already learned to add. Each finder looks from one side only, so between them the sides
+are covered, and a separate verifier keeps the noise out.
 
-Without a guide, look for what the build, the tests and the linters cannot see:
-- a rule from AGENTS.md broken in a way no check would fail on
-- logic errors: a missed edge case, a wrong condition, state that goes stale, an error that
-  is swallowed
-- a change that leaves related code behind: a caller, a test, docs or a generated file not
-  updated with it
-- dead abstraction: an interface with one implementation, config for a value that never
-  changes, a wrapper that only forwards
-
-Do NOT mention anything the repository's compiler, linters, formatters or CI checks already
-catch. Skip anything already covered by one of your open threads.
+1. Start the finders in parallel, all in ONE message with one Agent call each:
+   `review:logic`, `review:callers`, `review:failures` and, in `full` mode,
+   `review:precedent`. Give each the same prompt: REPO, NUMBER, HEAD, MODE, BASE, how to
+   get the diff for this MODE (the bullets above), and the titles and paths of your
+   blocking threads still open so it skips them. Do not review the diff yourself while
+   they run.
+2. Collect the JSON arrays they return. A finder that fails or returns something that is
+   not a JSON array counts as `[]`; the others still go on.
+3. When there is at least one candidate, start `review:verify` with REPO, NUMBER, HEAD,
+   MODE, BASE, ROUND, every candidate as one JSON array, and the open thread titles. Its
+   array is your list of findings. Do not add findings of your own and do not drop any it
+   kept; you only write them up.
 
 ## Step 3 - submit ONE review
 
@@ -138,6 +136,10 @@ apart:
     What happens and why, with a concrete input and its result. Two to four sentences.
 
     How to fix it, in a sentence or two.
+
+Write each finding from the verifier's fields: `kind` picks the alert, `title` becomes the
+Korean noun-phrase title, `trigger`, `result` and `why` become the body, `fix` the last
+paragraph. Translate; do not soften the claim or add new ones.
 
 When the fix replaces exactly the commented lines, put it in a ```suggestion block instead
 of describing it, so the author can commit it with one click. A multi-line suggestion needs

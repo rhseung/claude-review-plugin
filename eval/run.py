@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EVAL = ROOT / "eval"
-ALLOWED = "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
+ALLOWED = "Read,Grep,Glob,Agent,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
 BLOCKING_ALERTS = {"CAUTION", "WARNING", "IMPORTANT"}
 # 첫 실행에서 작업들이 같은 저장소를 동시에 clone 하면 하나만 살아남는다. worktree add 도 같은 lock 을 잡는다
 CHECKOUT = threading.Lock()
@@ -54,12 +54,22 @@ def _checkout(case, k, args, work):
     repo = work / "repos" / case["repo"].replace("/", "__")
     if not repo.exists():
         repo.parent.mkdir(parents=True, exist_ok=True)
-        source = args.local_clone or f"https://github.com/{case['repo']}.git"
-        sh("git", "clone", "--bare", "--shared" if args.local_clone else "--filter=blob:none",
-           source, str(repo))
-    if sh("git", "cat-file", "-t", case["head"], cwd=repo, check=False).returncode != 0:
-        sh("git", "fetch", f"https://github.com/{case['repo']}.git",
-           f"+refs/pull/{case['pr']}/head:refs/eval/{case['pr']}", cwd=repo)
+        local = args.local_clones.get(case["repo"].split("/")[1])
+        if local:
+            sh("git", "clone", "--bare", "--shared", local, str(repo))
+        else:
+            # 비공개 저장소도 받도록 gh 로그인을 빌린다. 토큰을 URL 이나 설정에 남기지 않는다
+            sh("git", "-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential",
+               "clone", "--bare", "--filter=blob:none", f"https://github.com/{case['repo']}.git", str(repo))
+    auth = ("-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential")
+    url = f"https://github.com/{case['repo']}.git"
+    for sha in (case["head"], case["base"]):
+        if sh("git", "cat-file", "-t", sha, cwd=repo, check=False).returncode == 0:
+            continue
+        sh("git", *auth, "fetch", url, f"+refs/pull/{case['pr']}/head:refs/eval/{case['pr']}", cwd=repo, check=False)
+        if sh("git", "cat-file", "-t", sha, cwd=repo, check=False).returncode != 0:
+            # force push 로 어느 ref 에도 남지 않은 head 는 SHA 로 직접 받는다
+            sh("git", *auth, "fetch", url, sha, cwd=repo)
     tree = work / "trees" / f"{case['id']}-r{k}"
     if not tree.exists():
         sh("git", "worktree", "add", "--detach", "--force", str(tree), case["head"], cwd=repo)
@@ -97,7 +107,7 @@ def review(case, k, args, plugin, work, out):
               "--model", args.model,
               "--max-turns", "150",
               "--restricted", "--strict-mcp-config", "--no-session-persistence",
-              "--tools", "Bash,Read,Grep,Glob,Write,Edit",
+              "--tools", "Bash,Read,Grep,Glob,Write,Edit,Agent",
               "--allowedTools", ALLOWED,
               "--output-format", "json",
               cwd=tree, env=env, check=False, timeout=args.timeout)
@@ -213,10 +223,10 @@ def run_case(case, k, args, plugin, work, outdir):
         # 한도에 걸린 실행은 리뷰를 못 낸 것이 아니라 시작도 못 한 것이다. 섞이면 프롬프트 탓으로 읽힌다
         limit = re.search(r"hit your .*limit|usage limit", meta.get("result") or "", re.I)
         error = "usage limit" if limit else "no review submitted"
-        return {"case": case["id"], "run": k, "history": case["history"], "meta": meta, "error": error}
+        return {"case": case["id"], "repo": case["repo"], "set": case.get("set", "tuned"), "run": k, "history": case["history"], "meta": meta, "error": error}
     (out / "review.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     verdict = judge(case, result, args, out)
-    return {"case": case["id"], "run": k, "history": case["history"], "meta": meta, **score(case, result, verdict)}
+    return {"case": case["id"], "repo": case["repo"], "set": case.get("set", "tuned"), "run": k, "history": case["history"], "meta": meta, **score(case, result, verdict)}
 
 
 def summarize(results, label, args):
@@ -224,6 +234,8 @@ def summarize(results, label, args):
              "| case | before | caught | blocking | comments/run | other: valid/doubtful/wrong | verdicts | time/run | cost/run |",
              "|---|---|---|---|---|---|---|---|---|"]
     tot = {"defects": 0, "caught": 0, "blocking": 0, "cost": 0.0}
+    # 프롬프트를 고칠 때 본 저장소와 처음 보는 저장소를 따로 본다. 합치면 맞춤 효과가 섞인다
+    per_repo = {}
     by_case = {}
     for r in results:
         by_case.setdefault((r["history"], r["case"]), []).append(r)
@@ -246,6 +258,11 @@ def summarize(results, label, args):
         tot["defects"] += total
         tot["caught"] += caught
         tot["blocking"] += blocking
+        for key in (runs[0].get("set", "tuned"), runs[0].get("repo", "?")):
+            rp = per_repo.setdefault(key, [0, 0, 0])
+            rp[0] += caught
+            rp[1] += blocking
+            rp[2] += total
         comments = sum(r["comments"] for r in ok) / len(ok)
         o = {v: sum(r["others"][v] for r in ok) for v in ("valid", "doubtful", "wrong")}
         events = {}
@@ -261,6 +278,7 @@ def summarize(results, label, args):
                      f"| {o['valid']}/{o['doubtful']}/{o['wrong']} | {verdicts} | {time_} | {cost} |")
     lines += ["", f"caught {tot['caught']}/{tot['defects']}, as blocking {tot['blocking']}/{tot['defects']}, "
                   f"total cost ${tot['cost']:.2f}"]
+    lines += [f"- {r}: caught {c}/{t}, as blocking {b}/{t}" for r, (c, b, t) in sorted(per_repo.items())]
     return "\n".join(lines)
 
 
@@ -275,12 +293,14 @@ def main():
     p.add_argument("--timeout", type=int, default=1800)
     p.add_argument("--name", help="results folder name (default: label and time)")
     p.add_argument("--work", default=os.environ.get("EVAL_WORK", str(Path(os.environ.get("TMPDIR", "/tmp")) / "claude-review-eval")))
-    p.add_argument("--local-clone", help="a local clone to borrow objects from, e.g. ~/Developer/folio")
+    p.add_argument("--local-clone", action="append", default=[],
+                   help="a local clone to borrow objects from, matched by folder name; repeatable")
     p.add_argument("--rejudge", action="store_true", help="reuse the last reviews in --name and only judge again")
     p.add_argument("--resume", action="store_true", help="in --name, keep runs that submitted a review and redo the rest")
     args = p.parse_args()
 
     args.real_gh = shutil.which("gh")
+    args.local_clones = {Path(c).expanduser().name: str(Path(c).expanduser()) for c in args.local_clone}
     args.gh_token = sh("gh", "auth", "token").stdout.strip()
     work = Path(args.work)
     work.mkdir(parents=True, exist_ok=True)
@@ -303,7 +323,7 @@ def main():
             try:
                 r = f.result()
             except Exception as e:  # 한 사례가 실패해도 나머지 결과는 남긴다
-                r = {"case": c["id"], "run": k, "history": c["history"], "meta": {},
+                r = {"case": c["id"], "repo": c["repo"], "set": c.get("set", "tuned"), "run": k, "history": c["history"], "meta": {},
                      "error": f"{type(e).__name__}: {e}"[:200]}
             results.append(r)
             print(f"done {c['id']} r{k}", file=sys.stderr)

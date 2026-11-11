@@ -109,6 +109,9 @@ python3 eval/run.py --local-clone ~/Developer/rhseung/folio              # 작�
 python3 eval/run.py --local-clone ~/Developer/rhseung/folio --ref origin/main
 ```
 
+다른 저장소의 사례도 들어 있습니다. `--local-clone`은 여러 번 줄 수 있고, 폴더 이름이 저장소 이름과
+같은 클론을 씁니다. 로컬 클론이 없는 저장소는 `gh` 로그인으로 받습니다.
+
 결과는 `eval/results/`에 남습니다. 리뷰 한 번이 구독 사용량을 쓰므로 `--cases`로 사례를
 골라 돌릴 수 있습니다. 사용량 한도로 중간에 멈췄으면 같은 `--name`에 `--resume`을 붙여
 리뷰를 내지 못한 실행만 다시 돌립니다.
@@ -118,5 +121,7 @@ python3 eval/run.py --local-clone ~/Developer/rhseung/folio --ref origin/main
 - `review/commands/pr.md` - PR을 열 때와 push 할 때마다 실행되는 리뷰 루프
 - `review/commands/reply.md` - thread 답글 응답
 - `review/commands/mention.md` - `@claude` 멘션 처리
+- `review/agents/` - 리뷰 루프가 동시에 띄우는 리뷰어(로직, 호출부, 실패 경로, 기존 코드 비교)와 그 결과를
+  다시 확인하는 검증 agent
 - `.github/workflows/review.yml` - 위 세 가지를 잡으로 묶은 reusable workflow. 첫 리뷰에는
   opus를 사용하고, 이후 리뷰와 답글, 멘션에는 sonnet을 사용합니다.
