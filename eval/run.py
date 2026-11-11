@@ -184,14 +184,17 @@ def candidates(reply):
         return None
     # 앞에서 돈 subagent 의 답은 안내 문단 뒤에 한 칸씩 들여 써서 오고, 대개 ```json 으로 감싼다
     text = "\n".join(l[2:] if l.startswith("  ") else l for l in reply.splitlines())
-    fence = re.findall(r"```(?:json)?\s*(\[.*?\])\s*```", text, re.S)
-    for chunk in fence + [text[m.start():] for m in re.finditer(r"\[\s*(\{|\])", text)]:
+    # 검증 agent 는 {"findings": [...], "dropped": [...]} 로, 리뷰어는 배열로 답한다
+    fence = re.findall(r"```(?:json)?\s*([\[{].*?[\]}])\s*```", text, re.S)
+    for chunk in fence + [text[m.start():] for m in re.finditer(r"\[\s*(\{|\])|\{\s*\"findings\"", text)]:
         try:
             value, _ = json.JSONDecoder().raw_decode(chunk)
-            if isinstance(value, list):
-                return value
         except json.JSONDecodeError:
             continue
+        if isinstance(value, dict) and isinstance(value.get("findings"), list):
+            return value["findings"]
+        if isinstance(value, list):
+            return value
     return None
 
 

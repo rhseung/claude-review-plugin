@@ -108,8 +108,8 @@ are covered, and a separate verifier keeps the noise out.
    not a JSON array counts as `[]`; the others still go on.
 3. When there is at least one candidate, start `review:verify` with REPO, NUMBER, HEAD,
    MODE, BASE, ROUND, every candidate as one JSON array, and the open thread titles. Its
-   array is your list of findings. Do not add findings of your own and do not drop any it
-   kept; you only write them up.
+   `findings` are your list of findings. Do not add findings of your own and do not drop
+   any it kept; you only write them up. Ignore its `dropped` list.
 
 ## Step 3 - submit ONE review
 

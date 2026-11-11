@@ -22,13 +22,22 @@ file, never call `gh api` with `-X`, `--input`, `-f` or `-F`, never post anythin
    guards, defaults, callers and platform behavior that could stop it.
 3. Decide:
    - `confirmed`: the trace reaches the result.
-   - `refuted`: something in the code stops it. Say what.
+   - `refuted`: a line of code stops it: a guard, a default, a caller that never passes
+     that input. Name the line. "Seems unlikely" or "probably handled" is not a
+     refutation.
    - `uncertain`: the result depends on behavior you cannot check from the code, such as
-     a platform or library detail. Keep it only when the claim matches how that platform
-     or library is documented to behave, or the repository's own code works around the
-     same behavior elsewhere.
-4. Drop it when the compiler, linters or CI would catch it, when it is style or taste, or
-   when an open thread already covers it.
+     a platform or library detail. Keep it when the claim matches how that platform or
+     library behaves, or when the code has no handler at all for a failure the platform
+     can produce (a load error, a dropped connection, a killed process). A missing
+     handler leaves nothing to trace, so its absence is the evidence.
+4. Drop it when it is style or taste, or when an open thread already covers it. Keep a
+   broken build, test suite or CI step: CI runs alongside the review, not before it, and
+   such a break is 버그.
+5. Weigh what happens, not how often. Keep a hang, a crash, lost or corrupted data and a
+   feature that stops working, however rare the trigger. Drop a robustness nicety that
+   changes nothing a user sees: a less helpful error message, cleanup skipped on Ctrl-C, a
+   platform or environment the project does not target, a limit no real input reaches. A
+   finding you keep is filed as blocking, so a nicety kept here holds up the merge.
 
 Several finders may report the same root cause from different sides. Merge those into one,
 anchored on the line closest to the cause, and keep the clearest trigger.
@@ -50,15 +59,19 @@ When ROUND is 4 or more, keep only 데이터 and 버그.
 
 ## Reply
 
-Reply with a JSON array and nothing else, one entry per finding you keep:
+Reply with a JSON object and nothing else. `findings` has one entry per finding you keep;
+`dropped` has one per candidate you dropped, with the line or reason that sank it:
 
-    [{"kind": "버그", "path": "src/x.ts", "line": 42, "start_line": null,
-      "title": "short noun phrase",
-      "trigger": "the concrete input or situation",
-      "result": "what goes wrong",
-      "why": "the cause, with path:line for code outside the diff",
-      "fix": "the fix; when it replaces exactly lines start_line..line, the replacement code",
-      "verdict": "confirmed or uncertain",
-      "lenses": ["logic", "callers"]}]
+    {"findings": [{"kind": "버그", "path": "src/x.ts", "line": 42, "start_line": null,
+                   "title": "short noun phrase",
+                   "trigger": "the concrete input or situation",
+                   "result": "what goes wrong",
+                   "why": "the cause, with path:line for code outside the diff",
+                   "fix": "the fix; when it replaces exactly lines start_line..line, the replacement code",
+                   "verdict": "confirmed or uncertain",
+                   "lenses": ["logic", "callers"]}],
+     "dropped": [{"title": "the candidate's title", "lens": "logic",
+                  "reason": "refuted at src/y.ts:10 because ..., or duplicate of ..."}]}
 
-`line` must be a line of the new file inside the PR diff. Reply `[]` when nothing holds.
+`line` must be a line of the new file inside the PR diff. A merged duplicate goes in
+`dropped` with the finding it merged into.
