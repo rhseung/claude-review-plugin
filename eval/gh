@@ -41,7 +41,9 @@ if [ "${1:-}" = pr ]; then
           case "$a" in --jq|-q|-t|--template) skip=1 ;; *) plain+=("$a") ;; esac
         done
         resp=$(real "${plain[@]}") || exit $?
-        reply "$(jq --arg h "$EVAL_HEAD" 'if has("headRefOid") then .headRefOid = $h else . end' <<< "$resp")"
+        files=$(git -C "$EVAL_GIT_DIR" diff --numstat "$EVAL_BASE...$EVAL_HEAD" |
+          jq -R -s '[split("\n")[] | select(length > 0) | split("\t") | {path: .[2], additions: (.[0] | tonumber? // 0), deletions: (.[1] | tonumber? // 0)}]')
+        reply "$(jq --arg h "$EVAL_HEAD" --argjson f "$files" 'if has("headRefOid") then .headRefOid = $h else . end | if has("files") then .files = $f else . end' <<< "$resp")"
         exit 0
       fi
       real "$@"; exit $? ;;
@@ -97,6 +99,11 @@ if [ "$method" = GET ]; then
   case "$path" in
     */pulls/*/reviews|*/pulls/*/comments|*/issues/*/comments|*/pulls/*/reviews/*/comments)
       reply '[]'; exit 0 ;;
+    */pulls/*/files)
+      # 지금 PR 의 파일 목록에는 평가 커밋 뒤에 고친 파일도 들어 있다. 평가 커밋까지의 diff 로 만든다
+      reply "$(git -C "$EVAL_GIT_DIR" diff --numstat "$EVAL_BASE...$EVAL_HEAD" |
+        jq -R -s '[split("\n")[] | select(length > 0) | split("\t") | {filename: .[2], additions: (.[0] | tonumber? // 0), deletions: (.[1] | tonumber? // 0), status: "modified"}]')"
+      exit 0 ;;
     */pulls/*/commits)
       # 평가 커밋까지의 PR 커밋만 보인다
       reply "$(git -C "$EVAL_GIT_DIR" log --reverse --format='%H%x09%s' "$EVAL_BASE..$EVAL_HEAD" |
