@@ -16,9 +16,11 @@ jobs:
   # PR 열림/push -> 수정된 thread 닫기 -> 첫 리뷰는 PR 전체, 이후는 지난 리뷰 뒤의 변경만
   # 리뷰 -> 막는 피드백이 남으면 request changes, 없으면 approve
   review:
-    # 포크 PR 은 시크릿이 없어 실패 대신 건너뛴다
+    # 포크 PR 은 시크릿이 없어 실패 대신 건너뛴다. allowed_bots 에 없는 봇이 띄운 실행은 액션이
+    # 거절하므로, 실패 알림을 남기지 않게 미리 건너뛴다
     if: >-
       ${{ github.event_name == 'pull_request' &&
+          (!endsWith(github.actor, '[bot]') || inputs.allowed_bots == '*' || contains(inputs.allowed_bots, github.actor)) &&
           github.event.pull_request.head.repo.full_name == github.repository &&
           github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
@@ -82,14 +84,18 @@ jobs:
       # 플러그인은 이 워크플로와 같은 커밋에서 읽는다. 마켓플레이스 git URL 은 늘 기본 브랜치를
       # 받아오므로, 그대로 두면 @v1 이나 브랜치를 가리킨 호출자도 main 의 프롬프트로 돈다.
       # 호출자 체크아웃 뒤에 둬야 한다: 앞에 두면 저장소 체크아웃이 이 디렉터리를 지운다
-      - uses: actions/checkout@v6
+      - id: plugin
+        uses: actions/checkout@v6
         with:
           repository: ${{ job.workflow_repository || 'rhseung/claude-review-plugin' }}
           ref: ${{ job.workflow_sha || 'main' }}
           path: .claude-review/plugin
           persist-credentials: false
 
-      - uses: anthropics/claude-code-action@v1
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        # 잡 timeout 은 남은 단계까지 취소한다. 알림 단계가 돌 시간을 남긴다
+        timeout-minutes: 25
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: ${{ inputs.allowed_bots }}
@@ -100,6 +106,17 @@ jobs:
             --model ${{ steps.plan.outputs.model }}
             --max-turns 150
             --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
+
+      # 토큰 만료, 사용량 한도 같은 실패를 Actions 탭에만 두지 않고 PR에 알린다. 액션은 플러그인과
+      # 같은 커밋에서 읽는다
+      - if: ${{ !cancelled() && steps.plugin.outcome == 'success' }}
+        uses: ./.claude-review/plugin/.github/actions/report
+        with:
+          job: review
+          pr: ${{ github.event.pull_request.number }}
+          failed: ${{ job.status == 'failure' }}
+          execution_file: ${{ steps.claude.outputs.execution_file }}
+          has_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
 
   # thread 답글 -> 답이 안 달린 내 thread 를 전부 처리 -> 막는 thread 가 남으면 request changes,
   # 없으면 approve. 먼저 시작한 push 리뷰가 돌고 있으면 승인은 그쪽에 맡긴다
@@ -136,14 +153,18 @@ jobs:
           fetch-depth: 1
 
       # review 잡과 같은 이유로 플러그인을 이 워크플로와 같은 커밋에서 읽는다
-      - uses: actions/checkout@v6
+      - id: plugin
+        uses: actions/checkout@v6
         with:
           repository: ${{ job.workflow_repository || 'rhseung/claude-review-plugin' }}
           ref: ${{ job.workflow_sha || 'main' }}
           path: .claude-review/plugin
           persist-credentials: false
 
-      - uses: anthropics/claude-code-action@v1
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        # 잡 timeout 은 남은 단계까지 취소한다. 알림 단계가 돌 시간을 남긴다
+        timeout-minutes: 25
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: ${{ github.workspace }}/.claude-review/plugin
@@ -153,6 +174,17 @@ jobs:
             --model claude-sonnet-5-5
             --max-turns 120
             --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Edit(/.claude-review/**)"
+
+      # 토큰 만료, 사용량 한도 같은 실패를 Actions 탭에만 두지 않고 PR에 알린다. 액션은 플러그인과
+      # 같은 커밋에서 읽는다
+      - if: ${{ !cancelled() && steps.plugin.outcome == 'success' }}
+        uses: ./.claude-review/plugin/.github/actions/report
+        with:
+          job: reply
+          pr: ${{ github.event.pull_request.number }}
+          failed: ${{ job.status == 'failure' }}
+          execution_file: ${{ steps.claude.outputs.execution_file }}
+          has_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
 
   # @claude 멘션 -> 요청대로 재리뷰하거나 답변 -> 리뷰 제출과 승인 규칙은 reply와 동일
   mention:
@@ -195,14 +227,18 @@ jobs:
           fetch-depth: 1
 
       # review 잡과 같은 이유로 플러그인을 이 워크플로와 같은 커밋에서 읽는다
-      - uses: actions/checkout@v6
+      - id: plugin
+        uses: actions/checkout@v6
         with:
           repository: ${{ job.workflow_repository || 'rhseung/claude-review-plugin' }}
           ref: ${{ job.workflow_sha || 'main' }}
           path: .claude-review/plugin
           persist-credentials: false
 
-      - uses: anthropics/claude-code-action@v1
+      - id: claude
+        uses: anthropics/claude-code-action@v1
+        # 잡 timeout 은 남은 단계까지 취소한다. 알림 단계가 돌 시간을 남긴다
+        timeout-minutes: 25
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: ${{ github.workspace }}/.claude-review/plugin
@@ -212,3 +248,14 @@ jobs:
             --model claude-sonnet-5-5
             --max-turns 150
             --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh api:*),Edit(/.claude-review/**)"
+
+      # 토큰 만료, 사용량 한도 같은 실패를 Actions 탭에만 두지 않고 PR에 알린다. 액션은 플러그인과
+      # 같은 커밋에서 읽는다
+      - if: ${{ !cancelled() && steps.plugin.outcome == 'success' }}
+        uses: ./.claude-review/plugin/.github/actions/report
+        with:
+          job: mention
+          pr: ${{ github.event.issue.number }}
+          failed: ${{ job.status == 'failure' }}
+          execution_file: ${{ steps.claude.outputs.execution_file }}
+          has_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}

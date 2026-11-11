@@ -1,0 +1,180 @@
+[
+  {
+    "id": "382-score-wipe",
+    "repo": "rhseung/folio",
+    "pr": 382,
+    "head": "5468e4653658ad2ddfe3b45f3ae4741b26545638",
+    "base": "cc14a27848a809e9c622e870b90b8c92ed0b9625",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "score-wipe",
+        "blocking": true,
+        "where": "packages/folio-core/sources/folio-actions/work-actions.swift, folio-cli generated commands",
+        "bug": "After generating set commands from Patch fields, `assignment set --score <component>:9/10` on an assignment counted in several grade components replaces the whole score list, so the scores of the components not given are erased. Before this PR only the given component's score changed. Fixed later in #383."
+      }
+    ]
+  },
+  {
+    "id": "406-sheet-save-disabled",
+    "repo": "rhseung/folio",
+    "pr": 406,
+    "head": "f5209cb9fe9c5465b7921ba2ab8be74d726a878d",
+    "base": "b1d932b37bf0aa5e780b540dce19fd8b9f9be38a",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "suggested-row-blocks-save",
+        "blocking": true,
+        "where": "app/features/course/session-sheet-model.swift, folio-domain course/session-menu.swift",
+        "bug": "In the session sheet, a suggested progress row that the session did not have starts checked. With no recording the suggestion has a start page but no end page, so `refusal` blocks saving until an end page is picked, while the reason sentence for a row missing its end is hidden. Opening the sheet during a class to only link units leaves the save button disabled with no explanation. Fixed later in #423."
+      }
+    ]
+  },
+  {
+    "id": "407-preview-margin",
+    "repo": "rhseung/folio",
+    "pr": 407,
+    "head": "9262b351454a62997094e0cc64227e550bd77bfb",
+    "base": "60abe4716c626f0cb3883255eb3c06c8f84c40ca",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "untrimmed-picture-callers",
+        "blocking": true,
+        "where": "app/platform/note-text/note-math.swift and its callers (math palette, completion menu in source-assist.swift)",
+        "bug": "The PR makes only the bubble trim pictures to their ink; the palette and the completion menu now get untrimmed pictures with a transparent 1/4em margin around the KaTeX box. Those callers still fit the whole picture, margin included, into their row or cell height, so symbols draw smaller than in the note line (and the completion row, which clamps only the height, squashes them). Fixed later in #428."
+      }
+    ]
+  },
+  {
+    "id": "417-wheel-never-reaches-bubble",
+    "repo": "rhseung/folio",
+    "pr": 417,
+    "head": "a8d4bd9a63675534cbaca796fb8c7a780a5a9579",
+    "base": "867378ea2a4032edd95a251199592e1b8716003b",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "hit-test-swallows-wheel",
+        "blocking": true,
+        "where": "app/platform/note-text/source-view.swift",
+        "bug": "Long math is meant to scroll horizontally inside the bubble, but `NoteScrollView.hitTest` returns the editor text view for every point over the note, the bubble included, so trackpad and wheel events go to the editor, which passes them to the note scroll view. The bubble's scroll view never receives a wheel event; the test only moves the scroll position in code, so it does not cover this path. Fixed later in #430."
+      },
+      {
+        "id": "bubble-wider-than-column",
+        "blocking": true,
+        "where": "app/platform/note-text/source-view.swift",
+        "bug": "The bubble's maximum width comes from the text view's visible width (the whole window), so a long formula's bubble extends past the note column to the window edge and over the scroll bar. Fixed later in #430."
+      }
+    ]
+  },
+  {
+    "id": "418-popover-height",
+    "repo": "rhseung/folio",
+    "pr": 418,
+    "head": "3e2b8c1ed132001ab46ad1ecc1d80a80e8cb55da",
+    "base": "867378ea2a4032edd95a251199592e1b8716003b",
+    "history": "missed",
+    "expect": [
+      {
+        "id": "popover-keeps-height",
+        "blocking": true,
+        "where": "app/design/quick-add-field.swift (repeat chip custom popover)",
+        "bug": "In quick add's repeat chip, the custom-rule popover shows a weekday row only for the week unit. A macOS popover keeps proposing its last height, so switching week to month and back to week squeezes the weekday row into the shorter height and the interval and weekday rows overflow the card. The popover content needs `.fixedSize(horizontal: false, vertical: true)`, as the toolbar quick-add popover already does. Fixed later in #425."
+      }
+    ]
+  },
+  {
+    "id": "393-back-to-back-recording",
+    "repo": "rhseung/folio",
+    "pr": 393,
+    "head": "bfc04d5e2ed24aaad98aa65c0d9690cde970a994",
+    "base": "759561640ae6667ea1725ee9940b241056272024",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "recording-marked-done",
+        "blocking": true,
+        "where": "app/app/workspace-class-start.swift",
+        "bug": "The `.recording` step is marked done before checking `recorder.isActive`, so when the previous class is still recording (back-to-back classes with stop-after-N-minutes), the next class's recording is skipped and never retried."
+      }
+    ]
+  },
+  {
+    "id": "420-version-script-ci-filter",
+    "repo": "rhseung/folio",
+    "pr": 420,
+    "head": "179c19bfae9a005ddd1c53a3534224c9b6f86d88",
+    "base": "867378ea2a4032edd95a251199592e1b8716003b",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "ci-skips-xcode-builds",
+        "blocking": true,
+        "where": "mise.toml, .github/workflows/ci.yml",
+        "bug": "`generate` now runs `scripts/version.sh xcconfig` and its output feeds every Xcode build, but the CI `changes` job treats `^scripts/` as irrelevant to the Xcode jobs, so a PR that only breaks `scripts/version.sh` skips all Xcode builds and fails only on main."
+      }
+    ]
+  },
+  {
+    "id": "418-repeat-weekday",
+    "repo": "rhseung/folio",
+    "pr": 418,
+    "head": "a5f9cb1cb520d6fb524b79e194a8ea6a0a6fca71",
+    "base": "867378ea2a4032edd95a251199592e1b8716003b",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "friday-each-drops-weekday",
+        "blocking": true,
+        "where": "packages/folio-core/sources/folio-domain/course/assignment-repeat.swift",
+        "bug": "A single weekday with 마다 (`금요일마다`) becomes `weekdays: []` (repeat on the due weekday). Quick add sets the due date to that weekday, but `init(text:)` also serves the CLI and MCP `--repeats` text, so `--due` on a Tuesday with `--repeats 금요일마다` repeats on Tuesdays and the Friday is lost."
+      },
+      {
+        "id": "month-end-next-due",
+        "blocking": true,
+        "where": "app/features/course/assignments-model.swift",
+        "bug": "The hint's next due date calls `next(after: due)` without the series' first day, while `continueRepeating` passes it, so for a monthly series started on the 31st the hint says 12/30 but the next assignment is created on 12/31. The original review filed this as minor; it is a wrong result for a concrete input."
+      }
+    ]
+  },
+  {
+    "id": "398-math-failure-cache",
+    "repo": "rhseung/folio",
+    "pr": 398,
+    "head": "1219ba2e05c42cd0de05c38bd35baf820df52114",
+    "base": "b1dc52377e29f127e1641a4a10c46dfac353a2db",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "transient-failure-permanent",
+        "blocking": true,
+        "where": "app/platform/note-text/note-math.swift",
+        "bug": "Every `nil` from `draw` goes into `failed`, so transient failures (the web content process terminating mid-draw, `takeSnapshot` failing when the hidden page leaves the window) are cached as permanent and the formula is never drawn again until the app restarts. Only a KaTeX parse failure should be cached."
+      },
+      {
+        "id": "load-failure-hangs",
+        "blocking": true,
+        "where": "app/platform/note-text/note-math.swift",
+        "bug": "`MathPage` has no `didFail`/`didFailProvisionalNavigation`, so if the page load fails `loaded` stays false forever, the `onLoad` wait and the timeout loop never end, `busy` stays true and every formula in the session stops rendering. The original review filed this as minor; it is a hang for a concrete failure."
+      }
+    ]
+  },
+  {
+    "id": "426-weekend-title-word",
+    "repo": "rhseung/folio",
+    "pr": 426,
+    "head": "f2901bb778d26177a44e43a1ce218621b047f181",
+    "base": "4dec61640346c948cd0b967e6be57a4bf34b1e3c",
+    "history": "caught",
+    "expect": [
+      {
+        "id": "weekend-word-as-weekdays",
+        "blocking": true,
+        "where": "packages/folio-core/sources/folio-domain/course/assignment-repeat.swift, quick-add grammar",
+        "bug": "`weekdayWord` reads `평일` and `주말` as weekday sets even without 마다, and `bindWeekdays` keeps a set whenever any weekly repeat is anywhere on the line, so the title word in `선대 주말 과제 매주 금` becomes the repeat (title `과제`, repeat 매주 토, 일)."
+      }
+    ]
+  }
+]
